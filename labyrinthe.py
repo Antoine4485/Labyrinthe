@@ -1,11 +1,14 @@
 import random
-from PySide6 import QtWidgets
-import colorama
+import threading
+import time
+
+from PySide6 import QtWidgets as QtW
 
 
-class Labyrinth:
+class Labyrinth(QtW.QWidget):
 
     def __init__(self, grid):
+        super().__init__()
         self._grid = grid
         self._path = []
         self._get_path()
@@ -57,16 +60,33 @@ class Labyrinth:
         return random.choice(final_possible_next_pos)
 
     def _show_grid(self):
-        draw = ""
+        self.setGeometry(0, 0, 400, 300)
+        self.setWindowTitle("Labyrinthe")
+        grid_layout = QtW.QGridLayout()
+        # Création d'un groupe de widgets
+        group = QtW.QGroupBox()
+        self.labels = [[QtW.QLabel() for _ in range(len(self._grid[i]))] for i in range(len(self._grid))]
+
         for i in range(len(self._grid)):
             for j in range(len(self._grid[i])):
-                value = f"{self._grid[i][j]:^3}"
-                if (i, j) in self._path:
-                    value = (colorama.Back.LIGHTRED_EX + value + colorama.Style.RESET_ALL)
-                draw += value
-            draw += "\n"
+                label = QtW.QLabel(f"{self._grid[i][j]:^3}")
+                self.labels[i][j] = label
+                grid_layout.addWidget(label, i, j)
 
-        print(draw)
+        # On définit la grille comme disposition du groupe
+        group.setLayout(grid_layout)
+        # Création d'une disposition verticale QVBox
+        layout = QtW.QVBoxLayout()
+        # On ajoute les widgets créé à la disposition
+        # Le champ edit sera donc au-dessus du bouton
+        layout.addWidget(group)
+        self.setLayout(layout)
+        threading.Thread(target=self._show_path).start()
+
+    def _show_path(self):
+        for pos in self._path:
+            time.sleep(0.2)
+            self.labels[pos[0]][pos[1]].setStyleSheet(f"background-color: red;")
 
 
 if __name__ == '__main__':
@@ -97,4 +117,8 @@ if __name__ == '__main__':
     #     [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
     # ]
 
-    Labyrinth(grid)
+    # Création de l'application
+    app = QtW.QApplication([])
+    labyrinth = Labyrinth(grid)
+    labyrinth.show()
+    app.exec()
