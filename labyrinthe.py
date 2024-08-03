@@ -1,5 +1,5 @@
 import random
-
+from PySide6 import QtWidgets
 import colorama
 
 
