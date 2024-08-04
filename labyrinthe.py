@@ -4,6 +4,7 @@ import threading
 import time
 
 from PySide6 import QtWidgets as QtW, QtCore
+from PySide6.QtGui import QPixmap
 
 
 class Labyrinth(QtW.QWidget):
@@ -16,6 +17,7 @@ class Labyrinth(QtW.QWidget):
         # y retourner si on y est allé une fois)
         self._grid = copy.deepcopy(grid)
         self._path = []
+        self._timer_delay = 0.2
         self._show_grid()
 
     def _get_and_show_path(self):
@@ -29,10 +31,12 @@ class Labyrinth(QtW.QWidget):
             # s'il n'y a aucune case possible (on est dans un cul-de-sac), on met un 1 sur la case où on est pour ne pas
             # y retourner, on la supprime de la liste et on revient en arrière d'une case
             if not next_pos:
-                time.sleep(0.2)
+                self._timer()
                 current_pos = self._path[-1]
                 self._grid[current_pos[0]][current_pos[1]] = 1
                 self._remove_last_pos()
+                # current_pos = self._path[-1]
+                # self.labels[current_pos[0]][current_pos[1]].setPixmap(QPixmap('bb.png'))
                 continue
             self._add_pos(next_pos)
             # si la case contient le 3, le programme est terminé
@@ -52,21 +56,28 @@ class Labyrinth(QtW.QWidget):
         if len(self._path) > 1:
             for pos in self._get_closest_positions():
                 if pos in self._path and pos != self._path[-2]:
-                    time.sleep(0.2)
-                    len_path = len(self._path)
-                    index_pos = self._path.index(pos)
-                    for _ in range(len_path - 1 - index_pos):
+                    self._timer()
+                    for _ in range(len(self._path) - 1 - self._path.index(pos)):
                         self._remove_last_pos()
                     return
 
     def _add_pos(self, pos):
-        time.sleep(0.2)
+        self._timer()
+        if len(self._path) > 0:
+            current_pos = self._path[-1]
+            self.labels[current_pos[0]][current_pos[1]].clear()
+            #self.labels[current_pos[0]][current_pos[1]].setStyleSheet(f"background-color: rgb(200, 200, 200);")
         self._path.append(pos)
-        self.labels[pos[0]][pos[1]].setStyleSheet(f"background-color: red;")
+        self.labels[pos[0]][pos[1]].setPixmap(QPixmap('bb.png'))
+        #self.labels[pos[0]][pos[1]].setPixmap(QPixmap())
+        #self.labels[pos[0]][pos[1]].setStyleSheet(f"background-color: rgb(200, 200, 200);")
 
     def _remove_last_pos(self):
         pos = self._path.pop()
-        self.labels[pos[0]][pos[1]].setStyleSheet(f"background-color: none;")
+        self.labels[pos[0]][pos[1]].clear()
+        last_pos = self._path[-1]
+        self.labels[last_pos[0]][last_pos[1]].setPixmap(QPixmap('bb.png'))
+        #self.labels[pos[0]][pos[1]].setStyleSheet(f"background-color: none;")
 
     def _get_next_pos(self) -> None | tuple:
         final_possible_next_pos = []
@@ -88,6 +99,7 @@ class Labyrinth(QtW.QWidget):
         #self.setGeometry(0, 0, 400, 300)
         self.setWindowTitle("Labyrinthe")
         grid_layout = QtW.QGridLayout()
+        grid_layout.setSpacing(0)
         # Création d'un groupe de widgets
         group = QtW.QGroupBox()
 
@@ -95,7 +107,20 @@ class Labyrinth(QtW.QWidget):
 
         for i in range(len(self._initial_grid)):
             for j in range(len(self._initial_grid[i])):
-                label = QtW.QLabel(str(self._initial_grid[i][j]))
+                value = self._initial_grid[i][j]
+                if value == 1:
+                    label = QtW.QLabel()
+                    label.setPixmap(QPixmap('mur.webp'))
+                    #label.setStyleSheet(f"background-color: red;")
+                else:
+                    match value:
+                        case 0:
+                            value = ""
+                        case 2:
+                            value = "D"
+                        case 3:
+                            value = "A"
+                    label = QtW.QLabel(str(value))
                 label.setFixedSize(30, 30)
                 label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
                 self.labels[i][j] = label
@@ -123,6 +148,9 @@ class Labyrinth(QtW.QWidget):
                  (current_pos[0] + 1, current_pos[1]),
                  (current_pos[0], current_pos[1] - 1))
 
+    def _timer(self):
+        time.sleep(self._timer_delay)
+
 
 if __name__ == '__main__':
     # grid = [
@@ -130,6 +158,18 @@ if __name__ == '__main__':
     #     [1, 2, 0, 1, 0, 0, 0, 0, 0, 1],
     #     [1, 1, 0, 1, 0, 1, 1, 1, 1, 1],
     #     [0, 1, 0, 1, 0, 0, 0, 0, 0, 1],
+    #     [0, 1, 0, 1, 0, 0, 1, 1, 1, 1],
+    #     [1, 1, 0, 1, 1, 0, 1, 0, 0, 0],
+    #     [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+    #     [1, 1, 0, 1, 1, 1, 1, 0, 0, 0],
+    #     [0, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+    # ]
+
+    # grid = [
+    #     [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
+    #     [1, 2, 0, 1, 0, 0, 0, 0, 0, 1],
+    #     [1, 1, 0, 1, 0, 1, 1, 1, 1, 1],
+    #     [0, 1, 0, 1, 0, 0, 0, 0, 0, 3],
     #     [0, 1, 0, 1, 0, 0, 1, 1, 1, 1],
     #     [1, 1, 0, 1, 1, 0, 1, 0, 0, 0],
     #     [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
