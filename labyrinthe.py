@@ -15,18 +15,11 @@ class Labyrinth(QtW.QWidget):
         self._wall_value = 1
         self._start_value = 2
         self._finish_value = 3
-        self._timer_delay = 0.2
-        # grille pour l'affichage
         self._grid = [[{"value": value,
                         "authorisation": False if value == self._wall_value else True,
                         "label": self._get_label_by_value(value)} for value in row] for row in grid]
-
-        #self._initial_grid = grid
-        # grille pour les traitements (les valeurs de cette grille sont modifiées dans les "culs-de-sacs" pour ne pas
-        # y retourner si on y est allé une fois)
-        #self._grid = copy.deepcopy(grid)
         self._path = []
-        #self.labels = []
+        self._timer_delay = 0.2
         self._show_grid()
 
     def _get_label_by_value(self, value):
@@ -51,74 +44,32 @@ class Labyrinth(QtW.QWidget):
     #     return ""
 
     def _get_and_show_path(self):
-        # on ajoute la position de départ à la liste
         self._init_start_pos()
 
         while True:
-            # quand on est sur une case, on crée une liste des coordonnées des cases autour qui contiennent un 0 ou un 3
-            # et dont la case d'où l'on vient ne fait pas partie
-            #next_pos = self._get_next_pos()
-            # s'il n'y a aucune case possible (on est dans un cul-de-sac), on met un 1 sur la case où on est pour ne pas
-            # y retourner, on la supprime de la liste et on revient en arrière d'une case
             self._timer()
             possible_next_positions = self._get_possible_next_positions()
             prec_pos = self._path[-2] if len(self._path) > 1 else None
-            #if (pos != prec_pos):
+
             match len(possible_next_positions):
                 case 0:
+                    # plus d'issue possible
                     return
                 case 1:
+                    # cas où on est dans un cul-de-sac : on met le flag "authorisation" à False pour ne pas qu'on puisse
+                    # retourner sur la case actuelle
+                    last_pos = self._get_last_pos()
+                    self._grid[last_pos[0]][last_pos[1]]["authorisation"] = False
                     next_pos = possible_next_positions[0]
-                    current_pos = self._path[-1]
-                    self._grid[current_pos[0]][current_pos[1]]["authorisation"] = False
-                    # cas où on est dans un cul-de-sac
                     if next_pos == prec_pos:
+                        # on revient sur nos pas
                         self._remove_last_pos()
                         continue
-                #case 2:
-                    # s'il y a deux possibilités (avancer ou reculer), on avance
-                    # index_prec_pos = possible_next_positions.index(prec_pos)
-                    # index_next_pos = int(not index_prec_pos)
-                    # next_pos = possible_next_positions[index_next_pos]
                 case _:
                     if prec_pos in possible_next_positions:
                         possible_next_positions.remove(prec_pos)
-                    #possible_next_positions.remove(prec_pos)
-                    #index_prec_pos = possible_next_positions.index(prec_pos)
                     next_pos = random.choice(possible_next_positions)
 
-            # if len(possible_next_positions) == 0:
-            #     return
-            #
-            # elif len(possible_next_positions) == 1:
-            #     next_pos = possible_next_positions[0]
-            #     self._timer()
-            #     current_pos = self._path[-1]
-            #     self._grid[current_pos[0]][current_pos[1]]["authorisation"] = False
-            #     # cas où on est dans un cul-de-sac
-            #     if next_pos == prec_pos:
-            #         self._remove_last_pos()
-            #         continue
-            #     # current_pos = self._path[-1]
-            #     # self.labels[current_pos[0]][current_pos[1]].setPixmap(QPixmap('bb.png'))
-            #
-            # elif len(possible_next_positions) == 2:
-            #     index_prec_pos = possible_next_positions.index(prec_pos)
-            #     index_next_pos = int(not index_prec_pos)
-            #     next_pos = possible_next_positions[index_next_pos]
-            #     #current_pos = self._path[-1]
-            #     #self._grid[current_pos[0]][current_pos[1]]["authorisation"] = False
-            # else:
-            #     next_pos = random.choice(possible_next_positions)
-
-            # if not next_pos:
-            #     self._timer()
-            #     current_pos = self._path[-1]
-            #     self._grid[current_pos[0]][current_pos[1]]["authorisation"] = False
-            #     self._remove_last_pos()
-            #     # current_pos = self._path[-1]
-            #     # self.labels[current_pos[0]][current_pos[1]].setPixmap(QPixmap('bb.png'))
-            #     continue
             self._add_pos(next_pos)
             # si la case contient le 3, le programme est terminé
             if self._grid[next_pos[0]][next_pos[1]]["value"] == self._finish_value:
@@ -140,20 +91,32 @@ class Labyrinth(QtW.QWidget):
     #                     self._remove_last_pos()
     #                 return
 
+    def _get_last_pos(self):
+        pos = None
+        if len(self._path) > 0:
+            pos = self._path[-1]
+        return pos
+
     def _add_pos(self, pos):
         self._timer()
         if len(self._path) > 0:
-            current_pos = self._path[-1]
-            current_label = self._grid[current_pos[0]][current_pos[1]]["label"]
+            last_pos = self._get_last_pos()
+            current_label = self._grid[last_pos[0]][last_pos[1]]["label"]
             #label_text = current_label.text()
-            current_label.clear()
-            if self._grid[current_pos[0]][current_pos[1]]["value"] == self._start_value:
+            #current_label.clear()
+            #current_label.setPixmap(QPixmap())
+            current_label.setStyleSheet(f"background-color: rgb(200, 200, 200);")
+            if self._grid[last_pos[0]][last_pos[1]]["value"] == self._start_value:
                 current_label.setText("D")
+            else:
+                current_label.setPixmap(QPixmap())
             #self.labels[current_pos[0]][current_pos[1]].setStyleSheet(f"background-color: rgb(200, 200, 200);")
         self._path.append(pos)
+        #self._grid[pos[0]][pos[1]]["label"].clear()
         self._grid[pos[0]][pos[1]]["label"].setPixmap(QPixmap('bb.png'))
-        #self.labels[pos[0]][pos[1]].setPixmap(QPixmap())
-        #self.labels[pos[0]][pos[1]].setStyleSheet(f"background-color: rgb(200, 200, 200);")
+        #self._grid[pos[0]][pos[1]]["label"].setStyleSheet(f"background-color: rgb(200, 200, 200);")
+
+
 
     def _remove_last_pos(self):
         self._timer()
@@ -163,10 +126,11 @@ class Labyrinth(QtW.QWidget):
         pos = self._path.pop()
         label = self._grid[pos[0]][pos[1]]["label"]
         label.clear()
+        label.setStyleSheet(f"background-color: none;")
         if self._grid[pos[0]][pos[1]]["value"] == self._start_value:
             label.setText("D")
         if len(self._path) > 0:
-            last_pos = self._path[-1]
+            last_pos = self._get_last_pos()
             self._grid[last_pos[0]][last_pos[1]]["label"].setPixmap(QPixmap('bb.png'))
         #self.labels[pos[0]][pos[1]].setStyleSheet(f"background-color: none;")
 
