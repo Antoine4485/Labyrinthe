@@ -17,6 +17,10 @@ class Labyrinth(QtW.QWidget):
         # y retourner si on y est allé une fois)
         self._grid = copy.deepcopy(grid)
         self._path = []
+        self._path_value = 0
+        self._wall_value = 1
+        self._start_value = 2
+        self._finish_value = 3
         self._timer_delay = 0.2
         self._show_grid()
 
@@ -33,33 +37,31 @@ class Labyrinth(QtW.QWidget):
             if not next_pos:
                 self._timer()
                 current_pos = self._path[-1]
-                self._grid[current_pos[0]][current_pos[1]] = 1
+                self._grid[current_pos[0]][current_pos[1]] = self._wall_value
                 self._remove_last_pos()
                 # current_pos = self._path[-1]
                 # self.labels[current_pos[0]][current_pos[1]].setPixmap(QPixmap('bb.png'))
                 continue
             self._add_pos(next_pos)
             # si la case contient le 3, le programme est terminé
-            if self._grid[next_pos[0]][next_pos[1]] == 3:
+            if self._grid[next_pos[0]][next_pos[1]] == self._finish_value:
                 return
-            # on supprime une éventuelle boucle (si on a "tourné en rond")
-            self._remove_possible_loop()
 
     def _init_start_pos(self):
         for i in range(len(self._grid)):
             for j in range(len(self._grid[i])):
-                if self._grid[i][j] == 2:
+                if self._grid[i][j] == self._start_value:
                     self._add_pos((i, j))
                     return
 
-    def _remove_possible_loop(self):
-        if len(self._path) > 1:
-            for pos in self._get_closest_positions():
-                if pos in self._path and pos != self._path[-2]:
-                    self._timer()
-                    for _ in range(len(self._path) - 1 - self._path.index(pos)):
-                        self._remove_last_pos()
-                    return
+    # def _remove_possible_loop(self):
+    #     if len(self._path) > 1:
+    #         for pos in self._get_closest_positions():
+    #             if pos in self._path and pos != self._path[-2]:
+    #                 self._timer()
+    #                 for _ in range(len(self._path) - 1 - self._path.index(pos)):
+    #                     self._remove_last_pos()
+    #                 return
 
     def _add_pos(self, pos):
         self._timer()
@@ -81,13 +83,13 @@ class Labyrinth(QtW.QWidget):
 
     def _get_next_pos(self) -> None | tuple:
         final_possible_next_pos = []
-        authorized_values = (0, 3)
+        prec_pos = self._path[-2] if len(self._path) > 1 else None
 
         for pos in self._get_closest_positions():
-            if (pos not in self._path and
+            if (pos != prec_pos and
                     pos[0] in range(len(self._grid)) and
                     pos[1] in range(len(self._grid[pos[0]])) and
-                    self._grid[pos[0]][pos[1]] in authorized_values):
+                    self._grid[pos[0]][pos[1]] != self._wall_value):
                 final_possible_next_pos.append(pos)
 
         if len(final_possible_next_pos) == 0:
@@ -108,17 +110,17 @@ class Labyrinth(QtW.QWidget):
         for i in range(len(self._initial_grid)):
             for j in range(len(self._initial_grid[i])):
                 value = self._initial_grid[i][j]
-                if value == 1:
+                if value == self._wall_value:
                     label = QtW.QLabel()
                     label.setPixmap(QPixmap('mur.webp'))
                     #label.setStyleSheet(f"background-color: red;")
                 else:
                     match value:
-                        case 0:
+                        case self._path_value:
                             value = ""
-                        case 2:
+                        case self._start_value:
                             value = "D"
-                        case 3:
+                        case self._finish_value:
                             value = "A"
                     label = QtW.QLabel(str(value))
                 label.setFixedSize(30, 30)
@@ -177,10 +179,25 @@ if __name__ == '__main__':
     #     [0, 1, 1, 1, 0, 0, 0, 0, 0, 0],
     # ]
 
+    # grid = [
+    #     [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    #     [1, 2, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 3],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
+    #     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],
+    #     [0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+    #     [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
+    # ]
+
     grid = [
         [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-        [1, 2, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
         [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 3],
         [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
         [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
@@ -188,8 +205,20 @@ if __name__ == '__main__':
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
         [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
         [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],
+        [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+        [0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0],
+        [0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+        [1, 2, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
+        [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
+        [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
+        [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+        [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
+        [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],
         [0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0]
     ]
 
     # Création de l'application
