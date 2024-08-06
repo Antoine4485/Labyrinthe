@@ -27,8 +27,8 @@ class Labyrinth(QtW.QWidget):
         self._nb_rows_grid = len(self._grid)
         self._nb_cols_grid = len(self._grid[0])
         self._path = []
-        self._current_pos = (0, 0)
-        self._prec_pos = (0, 0)
+        self._current_pos = None
+        self._prec_pos = None
         #self._next_pos = ()
         self._show_grid()
 
@@ -59,95 +59,33 @@ class Labyrinth(QtW.QWidget):
                     # plus d'issue possible
                     return
                 case 1:
+                    # on est dans un cul-de-sac (ça peut être dès le point de départ)
                     self._grid[self._current_pos[0]][self._current_pos[1]]["authorisation"] = False
                     #self._grid[self._current_pos[0]][self._current_pos[1]]["label"].setText("4")
                     next_pos = possible_next_positions[0]
                     #if next_pos == self._prec_pos:
                     if len(self._path) > 1 and next_pos == self._path[-2]:
+                        # on fait demi-tour si on arrive dans ce cul-de-sac (ce qui n'est pas le cas si le cul-de-sac
+                        # est au point de départ ; dans ce cas-là on avance, on ne fait pas demi-tour)
                         self._remove_current_pos()
                         continue
                 case _:
                     if self._prec_pos in possible_next_positions:
+                        # pour ne pas revenir en arrière
                         possible_next_positions.remove(self._prec_pos)
+
+                    if self._remove_possible_loop(possible_next_positions):
+                        continue
+
                     next_pos = random.choice(possible_next_positions)
 
-            if next_pos not in self._path:
-                self._add_pos(next_pos)
-            else:
-                self._remove_current_pos()
+                    if next_pos in self._path:
+                        self._remove_current_pos()
+                        continue
+            self._add_pos(next_pos)
             # si la case contient le 3, le programme est terminé
             if self._grid[next_pos[0]][next_pos[1]]["value"] == self.FINISH_VALUE:
                 return
-
-            #self._remove_possible_loop()
-
-        # while True:
-        #     time.sleep(0.2)
-        #     # quand on est sur une case, on crée une liste des coordonnées des cases autour qui contiennent un 0 ou un 3
-        #     # et dont la case d'où l'on vient ne fait pas partie
-        #     next_pos = self._get_next_pos()
-        #     if not next_pos:
-        #         # pas d'issue
-        #         return
-        #     if next_pos == self._prec_pos:
-        #         # on est dans un cul-de-sac : on met le flag "authorisation" à False pour qu'on ne puisse pas retourner sur
-        #         # la case actuelle
-        #         self._grid[self._current_pos[0]][self._current_pos[1]]["authorisation"] = False
-        #         #self._remove_current_pos()
-        #         continue
-        #
-        #     if
-        #
-        #     self._add_pos(next_pos)
-        #     # si la case contient le 3, le programme est terminé
-        #     if self._grid[next_pos[0]][next_pos[1]] == 3:
-        #         return
-            # on supprime une éventuelle boucle (si on a "tourné en rond")
-            #self._remove_possible_loop()
-
-        # while True:
-        #     time.sleep(self.TIMER_DELAY)
-        #     possible_next_positions = self._get_possible_next_positions()
-        #     #prec_pos = self._path[-2] if len(self._path) > 1 else None
-        #
-        #     match len(possible_next_positions):
-        #         case 0:
-        #             # plus d'issue possible
-        #             return
-        #         case 1:
-        #             # on est dans un cul-de-sac : on met le flag "authorisation" à False pour ne pas qu'on puisse
-        #             # retourner sur la case actuelle
-        #             self._grid[self._current_pos[0]][self._current_pos[1]]["authorisation"] = False
-        #             next_pos = possible_next_positions[0]
-        #             if next_pos == self._prec_pos:
-        #                 # on revient sur nos pas
-        #                 self._remove_last_pos()
-        #                 continue
-        #         # case 2:
-        #         #     if len(self._path) > 1:
-        #         #         possible_next_positions.remove(self._current_pos)
-        #         #         if pos in self._path and pos != self._path[-2]:
-        #         #             self._timer()
-        #         #             for _ in range(len(self._path) - 1 - self._path.index(pos)):
-        #         #                 self._remove_last_pos()
-        #         #             return
-        #         #
-        #         #         if pos in self._path and pos != self._path[-2]:
-        #         #             self._timer()
-        #         #             for _ in range(len(self._path) - 1 - self._path.index(pos)):
-        #         #                 self._remove_last_pos()
-        #         #             return
-        #         case _:
-        #             if self._prec_pos in possible_next_positions:
-        #                 possible_next_positions.remove(self._prec_pos)
-        #             next_pos = random.choice(possible_next_positions)
-
-            # self._add_pos(next_pos)
-            # # si la case contient le 3, le programme est terminé
-            # if self._grid[next_pos[0]][next_pos[1]]["value"] == self.FINISH_VALUE:
-            #     return
-            #
-            # self._remove_possible_loop()
 
     def _get_possible_next_positions(self):
         possible_next_pos = []
@@ -181,14 +119,27 @@ class Labyrinth(QtW.QWidget):
                 (self._current_pos[0] + 1, self._current_pos[1]),
                 (self._current_pos[0], self._current_pos[1] - 1))
 
-    def _remove_possible_loop(self):
-        if len(self._path) > 1:
-            for pos in self._get_closest_positions():
-                if pos in self._path and pos != self._prec_pos:
-                    #time.sleep(self.TIMER_DELAY)
-                    for _ in range(len(self._path) - 1 - self._path.index(pos)):
-                        self._remove_current_pos()
-                    return
+    def _remove_possible_loop(self, possible_positions) -> bool:
+        for possible_position in possible_positions:
+            if possible_position in self._path:
+                index_possible_position = self._path.index(possible_position)
+                index_current_position = len(self._path) - 1
+                diff = index_current_position - index_possible_position
+                if diff < 3:
+                    continue
+                for _ in range(diff):
+                    self._remove_current_pos(with_timer_delay=False)
+                return True
+        return False
+
+    # def _remove_possible_loop(self, possible_positions):
+    #     if len(self._path) > 1:
+    #         for pos in possible_positions:
+    #             if pos in self._path and pos != self._prec_pos:
+    #                 #time.sleep(self.TIMER_DELAY)
+    #                 for _ in range(len(self._path) - 1 - self._path.index(pos)):
+    #                     self._remove_current_pos()
+    #                 return
 
     def _init_start_pos(self):
         for i in range(self._nb_rows_grid):
@@ -203,14 +154,17 @@ class Labyrinth(QtW.QWidget):
         #     current_label = self._grid[self._current_pos[0]][self._current_pos[1]]["label"]
         #     if self._grid[self._current_pos[0]][self._current_pos[1]]["value"] == self.START_VALUE:
         #         current_label.setText(self.START_LETTER)
-            #else:
-                #current_label.setPixmap(QPixmap(self.PATH_IMG))
-                #current_label.setPixmap(QPixmap())
-            #current_label.setStyleSheet("background-color:rgba(150, 150, 150, 0.5);")
+        #else:
+        #current_label.setPixmap(QPixmap(self.PATH_IMG))
+        #current_label.setPixmap(QPixmap())
+        #current_label.setStyleSheet("background-color:rgba(150, 150, 150, 0.5);")
         self._path.append(pos)
         self._prec_pos = self._current_pos
         self._current_pos = pos
         self._grid[pos[0]][pos[1]]["label"].setStyleSheet("background-color:rgba(150, 150, 150, 0.5);")
+
+        if not self._prec_pos:
+            return
 
         if self._grid[self._prec_pos[0]][self._prec_pos[1]]["value"] == self.START_VALUE:
             self._grid[self._prec_pos[0]][self._prec_pos[1]]["label"].setText(self.START_LETTER)
@@ -220,9 +174,9 @@ class Labyrinth(QtW.QWidget):
         #self._grid[pos[0]][pos[1]]["label"].setText("X")
         #self._grid[pos[0]][pos[1]]["label"].setPixmap(QPixmap(self.MAN_IMG))
 
-
-    def _remove_current_pos(self):
-        time.sleep(self.TIMER_DELAY)
+    def _remove_current_pos(self, with_timer_delay=True):
+        if with_timer_delay:
+            time.sleep(self.TIMER_DELAY)
         # s'il n'y a qu'un élément c'est forcément le point de départ, donc on ne l'enlève pas
         if len(self._path) == 1:
             return
@@ -308,19 +262,43 @@ if __name__ == '__main__':
     # ]
 
     grid = [
-        [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-        [1, 2, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
-        [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 3],
-        [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
-        [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
-        [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-        [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
-        [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],
-        [0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
+        [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
+        [1, 0, 1, 2, 0, 0, 0, 0, 0, 1],
+        [1, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
+        [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+        [1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+        [1, 1, 0, 1, 1, 1, 1, 0, 0, 0],
+        [0, 1, 1, 1, 0, 0, 0, 0, 0, 0],
     ]
+
+    # grid = [
+    #     [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
+    #     [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    #     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    #     [0, 0, 2, 0, 1, 0, 0, 0, 0, 3],
+    #     [1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
+    #     [1, 1, 1, 1, 1, 0, 1, 0, 0, 0],
+    #     [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+    #     [1, 1, 0, 1, 1, 1, 1, 0, 0, 0],
+    #     [0, 1, 1, 1, 0, 0, 0, 0, 0, 0],
+    # ]
+
+    # grid = [
+    #     [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    #     [1, 2, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 3],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
+    #     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+    #     [0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+    #     [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
+    # ]
 
     # grid = [
     #     [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
