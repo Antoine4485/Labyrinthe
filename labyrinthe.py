@@ -23,7 +23,7 @@ class Labyrinth(QtWidgets.QWidget):
     TIMER_DELAY = 0.2
     WALL_IMG = "mur.webp"
     STONE_IMG = "caillou.png"
-    CARDINAL_POINTS = {"N", "E", "S", "O"}
+    WAYS = {"N", "E", "S", "O"}
 
     def __init__(self, grid):
         super().__init__()
@@ -39,8 +39,8 @@ class Labyrinth(QtWidgets.QWidget):
         self._path = []
         self._current_pos = None
         self._prec_pos = None
-        self._start_value_pos = None
-        self._finish_value_pos = None
+        self._start_pos = None
+        self._finish_pos = None
         self._way = ""
         self._show_grid()
 
@@ -59,7 +59,7 @@ class Labyrinth(QtWidgets.QWidget):
 
     def _find_the_exit(self):
         self._init_start_and_finish_pos()
-        self._add_pos(self._start_value_pos)
+        self._add_pos(self._start_pos)
 
         while True:
             # quand on est sur une case, si on a fait une boucle, on l'enlève
@@ -73,40 +73,88 @@ class Labyrinth(QtWidgets.QWidget):
                     self._is_current_pos_in_cul_de_sac():
                 self._grid[self._current_pos[0]][self._current_pos[1]].authorisation = False
 
-            next_pos = self._get_next_pos()
-            if not next_pos:
+            next_way_and_pas = self._get_next_way_and_pos()
+            if not next_way_and_pas:
                 return
+            way, next_pos = next_way_and_pas
             if next_pos in self._path and len(self._path) > 1 and next_pos == self._path[-2]:
                 self._remove_current_pos()
                 continue
 
+            self._way = way
             self._add_pos(next_pos)
 
-    def _get_next_pos(self) -> tuple:
-        possible_next_positions = self._get_possible_next_positions()
-        if not possible_next_positions:
+    # def _get_next_pos_cardinal_point(self, next_pos: tuple) -> str:
+    #     for cardinal_point, pos in self._get_authorised_next_positions().items():
+    #         if pos == next_pos:
+    #             return cardinal_point
+    #     return ""
+
+    def _get_next_way_and_pos(self) -> tuple:
+        authorised_next_ways_and_positions = self._get_authorised_next_ways_and_positions()
+        if not authorised_next_ways_and_positions:
             return ()
 
-        if self._finish_value_pos in possible_next_positions:
-            next_pos = self._finish_value_pos
+        authorised_next_positions = list(authorised_next_ways_and_positions.values())
+
+        # if self._finish_pos in authorised_next_positions_values:
+        #     return self._finish_pos
+        #
+        # # cas où on est sur la case de départ
+        # if not self._prec_pos:
+        #     return random.choice(authorised_next_positions_values)
+        #
+        # if self._way in authorised_next_positions:
+        #     return authorised_next_positions[self._way]
+        #
+        # # s'il y a au moins une case possible en plus de la précédente, on ne revient pas sur cette dernière
+        # if len(authorised_next_positions_values) > 1 and self._prec_pos in authorised_next_positions_values:
+        #     authorised_next_positions_values.remove(self._prec_pos)
+        #
+        # return random.choice(authorised_next_positions)
+
+        # cas où la case finale est à côté de la case actuelle
+        if self._finish_pos in authorised_next_positions:
+            next_pos = self._finish_pos
         else:
-            # s'il y a au moins une case possible en plus de la précédente, on ne revient pas sur cette dernière
-            if len(possible_next_positions) > 1 and self._prec_pos in possible_next_positions:
-                possible_next_positions.remove(self._prec_pos)
+            # cas où on est sur la case de départ
+            if not self._prec_pos:
+                next_pos = random.choice(authorised_next_positions)
+            else:
+                # si on peut on va tout droit
+                if self._way in authorised_next_ways_and_positions:
+                    next_pos = authorised_next_ways_and_positions[self._way]
+                else:
+                    # s'il y a au moins une case possible en plus de la précédente, on ne revient pas sur cette dernière
+                    if len(authorised_next_positions) > 1 and self._prec_pos in authorised_next_positions:
+                        authorised_next_positions.remove(self._prec_pos)
 
-            next_pos = random.choice(possible_next_positions)
+                    next_pos = random.choice(authorised_next_positions)
 
-        return next_pos
+        return self._get_dict_key(authorised_next_ways_and_positions, next_pos), next_pos
 
-    def _is_diagonal_pos_in_front_of_corner(self, diag_cardinal_point: str) -> bool:
-        closest_positions = self._get_closest_positions()
-        opposite_cardinal_points = list(self.CARDINAL_POINTS - {diag_cardinal_point[0], diag_cardinal_point[1]})
+    def _get_left_and_right_ways(self) -> tuple:
+        match self._way:
+            case "N":
+                return "O", "E"
+            case "E":
+                return "N", "S"
+            case "S":
+                return "E", "O"
+            case "O":
+                return "S", "N"
+            case _:
+                return ()
 
-        for opposite_cardinal_point in opposite_cardinal_points:
-            if opposite_cardinal_point not in closest_positions:
+    def _is_diagonal_pos_in_front_of_corner(self, diagonal_way: str) -> bool:
+        closest_ways_and_positions = self._get_closest_ways_and_positions()
+        opposite_ways = list(self.WAYS - {diagonal_way[0], diagonal_way[1]})
+
+        for opposite_way in opposite_ways:
+            if opposite_way not in closest_ways_and_positions:
                 continue
-            opposite_cardinal_point_pos = closest_positions[opposite_cardinal_point]
-            if self._grid[opposite_cardinal_point_pos[0]][opposite_cardinal_point_pos[1]].authorisation:
+            opposite_pos = closest_ways_and_positions[opposite_way]
+            if self._grid[opposite_pos[0]][opposite_pos[1]].authorisation:
                 return False
 
         return True
@@ -114,55 +162,48 @@ class Labyrinth(QtWidgets.QWidget):
     def _is_current_pos_in_open_corner(self) -> bool:
         # un coin "ouvert" est un coin qui n'est pas dans un couloir, donc si on met un caillou sur cette position
         # courante, on ne risque pas de créer un cul-de-sac.
-        diagonal_positions = self._get_diagonal_positions()
+        diagonal_ways_and_positions = self._get_diagonal_ways_and_positions()
 
-        for cardinal_point, pos in diagonal_positions.items():
-            if self._grid[pos[0]][pos[1]].authorisation and self._is_diagonal_pos_in_front_of_corner(cardinal_point):
+        for way, pos in diagonal_ways_and_positions.items():
+            if self._grid[pos[0]][pos[1]].authorisation and self._is_diagonal_pos_in_front_of_corner(way):
                 return True
 
         return False
 
     def _is_current_pos_in_cul_de_sac(self) -> bool:
-        return len(self._get_possible_next_positions()) == 1
+        return len(self._get_authorised_next_ways_and_positions()) == 1
 
-    def _get_possible_next_positions(self) -> list[tuple]:
-        possible_next_pos = []
-
-        for pos in self._get_closest_positions().values():
-            if pos[0] in range(self._nb_rows_grid) and \
-                    pos[1] in range(self._nb_cols_grid) and \
-                    self._grid[pos[0]][pos[1]].authorisation:
-                possible_next_pos.append(pos)
-
-        return possible_next_pos
+    def _get_authorised_next_ways_and_positions(self) -> dict:
+        return {way: pos for way, pos in self._get_closest_ways_and_positions().items()
+                if self._grid[pos[0]][pos[1]].authorisation}
 
     def _is_pos_in_grid(self, pos: tuple) -> bool:
         return pos[0] in range(self._nb_rows_grid) and pos[1] in range(self._nb_cols_grid)
 
-    def _get_diagonal_positions(self) -> dict:
-        positions = {
+    def _get_diagonal_ways_and_positions(self) -> dict:
+        ways_and_positions = {
             "NE": (self._current_pos[0] - 1, self._current_pos[1] + 1),
             "SE": (self._current_pos[0] + 1, self._current_pos[1] + 1),
             "SO": (self._current_pos[0] + 1, self._current_pos[1] - 1),
             "NO": (self._current_pos[0] - 1, self._current_pos[1] - 1)
         }
 
-        return {cardinal_point: pos for cardinal_point, pos in positions.items() if self._is_pos_in_grid(pos)}
+        return {way: pos for way, pos in ways_and_positions.items() if self._is_pos_in_grid(pos)}
 
-    def _get_closest_positions(self) -> dict:
-        positions = {
+    def _get_closest_ways_and_positions(self) -> dict:
+        ways_and_positions = {
             "N": (self._current_pos[0] - 1, self._current_pos[1]),
             "E": (self._current_pos[0], self._current_pos[1] + 1),
             "S": (self._current_pos[0] + 1, self._current_pos[1]),
             "O": (self._current_pos[0], self._current_pos[1] - 1)
         }
 
-        return {cardinal_point: pos for cardinal_point, pos in positions.items() if self._is_pos_in_grid(pos)}
+        return {way: pos for way, pos in ways_and_positions.items() if self._is_pos_in_grid(pos)}
 
     def _remove_possible_loop(self) -> bool:
         index_current_pos = min_index_possible_pos = len(self._path) - 1
 
-        for pos in self._get_closest_positions().values():
+        for pos in self._get_closest_ways_and_positions().values():
             if pos in self._path:
                 index_pos = self._path.index(pos)
                 if index_pos < min_index_possible_pos:
@@ -182,10 +223,10 @@ class Labyrinth(QtWidgets.QWidget):
             for j in range(self._nb_cols_grid):
                 match self._grid[i][j].value:
                     case self.START_VALUE:
-                        self._start_value_pos = (i, j)
+                        self._start_pos = (i, j)
                     case self.FINISH_VALUE:
-                        self._finish_value_pos = (i, j)
-                if self._start_value_pos and self._finish_value_pos:
+                        self._finish_pos = (i, j)
+                if self._start_pos and self._finish_pos:
                     return
 
     def _add_pos(self, pos: tuple):
@@ -194,16 +235,16 @@ class Labyrinth(QtWidgets.QWidget):
         self._prec_pos = self._current_pos
         self._current_pos = pos
         self._grid[pos[0]][pos[1]].label.setStyleSheet("background-color:rgba(150, 150, 150, 0.5);")
-
         if not self._prec_pos:
             return
-
-        if self._grid[self._prec_pos[0]][self._prec_pos[1]].value == self.START_VALUE:
-            self._grid[self._prec_pos[0]][self._prec_pos[1]].label.setText(self.START_LETTER)
-        elif not self._grid[self._prec_pos[0]][self._prec_pos[1]].authorisation:
-            self._grid[self._prec_pos[0]][self._prec_pos[1]].label.setPixmap(QPixmap(self.STONE_IMG))
+        cell = self._grid[self._prec_pos[0]][self._prec_pos[1]]
+        label = cell.label
+        if cell.value == self.START_VALUE:
+            label.setText(self.START_LETTER)
+        elif not cell.authorisation:
+            label.setPixmap(QPixmap(self.STONE_IMG))
         else:
-            self._grid[self._prec_pos[0]][self._prec_pos[1]].label.setText("")
+            label.setText("")
 
     def _remove_current_pos(self, with_timer_delay=True):
         if with_timer_delay:
@@ -212,15 +253,17 @@ class Labyrinth(QtWidgets.QWidget):
         if len(self._path) == 1:
             return
         pos = self._path.pop()
-        label = self._grid[pos[0]][pos[1]].label
+        cell = self._grid[pos[0]][pos[1]]
+        label = cell.label
         label.clear()
-        if self._grid[pos[0]][pos[1]].value == self.START_VALUE:
+        if cell.value == self.START_VALUE:
             label.setText(self.START_LETTER)
-        self._grid[pos[0]][pos[1]].label.setStyleSheet("background-color:none;")
-        if not self._grid[pos[0]][pos[1]].authorisation:
-            self._grid[pos[0]][pos[1]].label.setPixmap(QPixmap(self.STONE_IMG))
+        label.setStyleSheet("background-color:none;")
+        if not cell.authorisation:
+            label.setPixmap(QPixmap(self.STONE_IMG))
         self._current_pos = self._path[-1]
         self._prec_pos = pos
+        self._way = None
 
     def _show_grid(self):
         self.setWindowTitle("Labyrinthe")
@@ -250,6 +293,10 @@ class Labyrinth(QtWidgets.QWidget):
         layout.addWidget(group)
         self.setLayout(layout)
         threading.Thread(target=self._find_the_exit).start()
+
+    @staticmethod
+    def _get_dict_key(dictionnary: dict, value):
+        return next((key for key, val in dictionnary.items() if val == value))
 
 
 if __name__ == '__main__':
@@ -355,13 +402,13 @@ if __name__ == '__main__':
         [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
         [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
         [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0],
+        [0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0],
         [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 0, 2, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
         [1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
         [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
-        [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
+        [0, 2, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
         [0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
         [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
         [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
