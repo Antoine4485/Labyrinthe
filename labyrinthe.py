@@ -137,7 +137,7 @@ class Labyrinth(QtWidgets.QWidget):
             # quand on est sur une case, si on a fait une boucle, on l'enlève
             # if self.__remove_showed_path_loop():
             #     continue
-            #self.__remove_showed_path_loop()
+            #self.__remove_possible_showed_path_loop()
 
             # si la case contient la valeur finale, le programme est terminé
             if self.__current_cell == self.__finish_cell:
@@ -156,7 +156,7 @@ class Labyrinth(QtWidgets.QWidget):
                 self.__add_cell_in_showed_path(next_cell)
             else:
                 if next_cell == self.__showed_path[-2]:
-                    self.__remove_current_cell_from_showed_path(with_timer_delay=False)
+                    self.__remove_cell_from_showed_path(with_timer_delay=False)
                 # else:
                 #     self.__remove_showed_path_loop()
 
@@ -269,21 +269,40 @@ class Labyrinth(QtWidgets.QWidget):
     def __is_current_cell_in_cul_de_sac(self) -> bool:
         return len(self.__get_authorised_next_cells_by_directions()) == 1
 
-    def __remove_showed_path_loop(self) -> bool:
-        index_current_cell = min_index_possible_cell = len(self.__total_path) - 1
+    def __remove_possible_showed_path_loop(self):
+        index_current_cell = min_index_possible_cell = len(self.__showed_path) - 1
+        cells = self.__get_straight_cells_by_directions().values()
 
-        for cell in self.__get_straight_cells_by_directions().values():
-            if cell in self.__total_path:
-                index_cell = self.__total_path.index(cell)
+        for cell in cells:
+            if cell in self.__showed_path:
+                index_cell = self.__showed_path.index(cell)
                 if index_cell < min_index_possible_cell:
                     min_index_possible_cell = index_cell
 
         diff = index_current_cell - min_index_possible_cell
         if diff < 3:
-            return False
-        for _ in range(diff):
-            self.__remove_current_cell_from_showed_path(with_timer_delay=False)
-        return True
+            return
+
+        cells_to_remove = []
+        for i in range(min_index_possible_cell + 1, index_current_cell + 1):
+            cells_to_remove.append(self.__showed_path[i])
+
+        prec_cell: None | Cell = None
+
+        for cell in reversed(cells_to_remove):
+            # if prec_cell:
+            #     if prec_cell == self.__start_cell:
+            #         prec_cell.label.setText(self.__START_LETTER)
+            #     elif not prec_cell.authorisation:
+            #         prec_cell.label.setPixmap(QPixmap(self.__STONE_IMG))
+            #     else:
+            #         prec_cell.label.setText("")
+
+            #cell.label.setText("X")
+            self.__remove_cell_from_showed_path(cell=cell, with_timer_delay=False)
+            prec_cell = cell
+
+        prec_cell.label.setText("")
 
     def __init_start_and_finish_cells(self):
         for row in self.__grid:
@@ -348,13 +367,15 @@ class Labyrinth(QtWidgets.QWidget):
         # else:
         #     label.setText("")
 
-    def __remove_current_cell_from_showed_path(self, with_timer_delay=True):
+    def __remove_cell_from_showed_path(self, cell: None | Cell = None, with_timer_delay=True):
         if with_timer_delay:
             time.sleep(self.__TIMER_DELAY)
         # s'il n'y a qu'un élément c'est forcément le point de départ, donc on ne l'enlève pas
         if len(self.__showed_path) == 1:
             return
-        cell = self.__showed_path.pop()
+        if not cell:
+            cell = self.__showed_path[-1]
+        self.__showed_path.remove(cell)
         cell.label.setStyleSheet("background-color:none;")
 
         # label = cell.label
@@ -509,7 +530,7 @@ if __name__ == '__main__':
         [0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
         [0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
         [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
+        [1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
         [0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 1, 0, 0],
         [0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
         [0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0]
