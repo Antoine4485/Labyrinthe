@@ -130,13 +130,14 @@ class Labyrinth(QtWidgets.QWidget):
     def __find_the_exit(self):
         self.__init_start_and_finish_cells()
         self.__add_cell_in_total_path(self.__start_cell)
+        self.__add_cell_in_showed_path(self.__start_cell)
 
         while True:
             print(self.__current_cell.row_id, self.__current_cell.col_id)
             # quand on est sur une case, si on a fait une boucle, on l'enlève
-            #if self.__remove_possible_loop():
-             #   continue
-            #self.__remove_possible_loop()
+            # if self.__remove_showed_path_loop():
+            #     continue
+            #self.__remove_showed_path_loop()
 
             # si la case contient la valeur finale, le programme est terminé
             if self.__current_cell == self.__finish_cell:
@@ -147,15 +148,30 @@ class Labyrinth(QtWidgets.QWidget):
             next_cell = self.__get_next_cell()
             if not next_cell:
                 return
+
             next_cell.direction = self.__get_key_by_value(self.__current_cell.straight_cells, next_cell)
             self.__add_cell_in_total_path(next_cell)
+
             if next_cell not in self.__showed_path:
-                self.__showed_path.append(next_cell)
+                self.__add_cell_in_showed_path(next_cell)
+            # else:
+            #     if next_cell == self.__showed_path[-2]:
+            #         self.__remove_current_cell_from_showed_path(with_timer_delay=False)
+                # else:
+                #     self.__remove_showed_path_loop()
+
             # elif next_cell == self.__current_cell.prec_cell:
-            elif next_cell == self.__showed_path[-2]:
-                self.__remove_current_cell_from_showed_path()
-            else:
-                self.__remove_possible_loop()
+            # elif next_cell == self.__showed_path[-2]:
+            #     self.__remove_current_cell_from_showed_path()
+            # else:
+            #     self.__remove_possible_loop()
+
+            # else:
+            #     if next_cell == self.__showed_path[-2]:
+            #         self.__remove_current_cell_from_showed_path()
+                # else:
+                #     self.__remove_showed_path_loop()
+
 
 
             # if next_cell in self.__showed_path and next_cell == self.__current_cell.prec_cell:
@@ -253,7 +269,7 @@ class Labyrinth(QtWidgets.QWidget):
     def __is_current_cell_in_cul_de_sac(self) -> bool:
         return len(self.__get_authorised_next_cells_by_directions()) == 1
 
-    def __remove_possible_loop(self):
+    def __remove_showed_path_loop(self) -> bool:
         index_current_cell = min_index_possible_cell = len(self.__total_path) - 1
 
         for cell in self.__get_straight_cells_by_directions().values():
@@ -264,9 +280,10 @@ class Labyrinth(QtWidgets.QWidget):
 
         diff = index_current_cell - min_index_possible_cell
         if diff < 3:
-            return
+            return False
         for _ in range(diff):
             self.__remove_current_cell_from_showed_path(with_timer_delay=False)
+        return True
 
     def __init_start_and_finish_cells(self):
         for row in self.__grid:
@@ -289,19 +306,21 @@ class Labyrinth(QtWidgets.QWidget):
     #     left_and_right_directions = self.__current_cell.get_left_and_right_directions()
     #     return straight_cells_by_directions[left_and_right_directions[0]], straight_cells_by_directions[left_and_right_directions[1]]
 
+    def __add_cell_in_showed_path(self, cell: Cell):
+        self.__showed_path.append(cell)
+
     def __add_cell_in_total_path(self, cell: Cell):
+        """
+        NE PLUS TOUCHER !!!!!!!!!!!!!!!!!!!!!!!
+        """
         time.sleep(self.__TIMER_DELAY)
         cell.prec_cell = self.__current_cell
         self.__total_path.append(cell)
         self.__current_cell = cell
-        cell.label.setStyleSheet("background-color:rgba(150, 150, 150, 0.5);")
         cell.left_cell = cell.straight_cells.get(cell.get_left_direction())
         cell.right_cell = cell.straight_cells.get(cell.get_right_direction())
-        # left_direction = cell.__get_left_direction()
-        # right_direction = cell.__get_right_direction()
-        #
-        # cell.left_cell = cell.straight_cells[left_direction]
-        # cell.right_cell = cell.straight_cells[right_direction]
+        cell.label.setStyleSheet("background-color:rgba(150, 150, 150, 0.5);")
+        cell.label.setText("X")
 
         if not cell.prec_cell:
             return
@@ -313,6 +332,22 @@ class Labyrinth(QtWidgets.QWidget):
         else:
             label.setText("")
 
+        # left_direction = cell.__get_left_direction()
+        # right_direction = cell.__get_right_direction()
+        #
+        # cell.left_cell = cell.straight_cells[left_direction]
+        # cell.right_cell = cell.straight_cells[right_direction]
+
+        # if not cell.prec_cell:
+        #     return
+        # label = cell.prec_cell.label
+        # if cell.prec_cell == self.__start_cell:
+        #     label.setText(self.__START_LETTER)
+        # elif not cell.prec_cell.authorisation:
+        #     label.setPixmap(QPixmap(self.__STONE_IMG))
+        # else:
+        #     label.setText("")
+
     def __remove_current_cell_from_showed_path(self, with_timer_delay=True):
         if with_timer_delay:
             time.sleep(self.__TIMER_DELAY)
@@ -320,13 +355,15 @@ class Labyrinth(QtWidgets.QWidget):
         if len(self.__showed_path) == 1:
             return
         cell = self.__showed_path.pop()
-        label = cell.label
-        label.clear()
-        if cell == self.__start_cell:
-            label.setText(self.__START_LETTER)
-        label.setStyleSheet("background-color:none;")
-        if not cell.authorisation:
-            label.setPixmap(QPixmap(self.__STONE_IMG))
+        cell.label.setStyleSheet("background-color:none;")
+
+        # label = cell.label
+        # label.clear()
+        # if cell == self.__start_cell:
+        #     label.setText(self.__START_LETTER)
+        # label.setStyleSheet("background-color:none;")
+        # if not cell.authorisation:
+        #     label.setPixmap(QPixmap(self.__STONE_IMG))
         #self.__current_cell = cell.prec_cell
         #self.__prec_cell = cell
 
