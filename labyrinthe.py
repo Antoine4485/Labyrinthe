@@ -154,9 +154,9 @@ class Labyrinth(QtWidgets.QWidget):
 
             if next_cell not in self.__showed_path:
                 self.__add_cell_in_showed_path(next_cell)
-            # else:
-            #     if next_cell == self.__showed_path[-2]:
-            #         self.__remove_current_cell_from_showed_path(with_timer_delay=False)
+            else:
+                if next_cell == self.__showed_path[-2]:
+                    self.__remove_current_cell_from_showed_path(with_timer_delay=False)
                 # else:
                 #     self.__remove_showed_path_loop()
 
