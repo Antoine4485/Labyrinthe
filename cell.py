@@ -20,50 +20,11 @@ class Cell:
         self.__authorisation = authorisation
         self.__label = label
         self.__direction = ""
-
-        # self.north_cell: None | Cell = None
-        # self.north_east_cell: None | Cell = None
-        # self.east_cell: None | Cell = None
-        # self.south_east_cell: None | Cell = None
-        # self.south_cell: None | Cell = None
-        # self.south_west_cell: None | Cell = None
-        # self.west_cell: None | Cell = None
-        # self.north_west_cell: None | Cell = None
-
         self.__prec_cell: None | Cell = None
         self.__left_cell: None | Cell = None
         self.__right_cell: None | Cell = None
-
         self.__straight_cells = {}
         self.__diagonal_cells = {}
-
-        # self.left_way = ""
-        # self.right_way = ""
-
-    # def set_direction(self, direction: str):
-    #     self.
-
-    # def _get_straight_cells_by_cardinal_points(self) -> dict:
-    #     return {
-    #         self.__NORTH_CODE: self.north_cell,
-    #         self.__EAST_CODE: self.east_cell,
-    #         self.__SOUTH_CODE: self.south_cell,
-    #         self.__WEST_CODE: self.west_cell
-    #     }
-    #
-    # def _get_diagonal_cells_by_cardinal_points(self) -> dict:
-    #     return {
-    #         self.__NORTH_EAST_CODE: self.north_east_cell,
-    #         self.__SOUTH_EAST_CODE: self.south_east_cell,
-    #         self.__SOUTH_WEST_CODE: self.south_west_cell,
-    #         self.__NORTH_WEST_CODE: self.north_west_cell,
-    #     }
-
-    @staticmethod
-    def get_opposite_directions(direction: str) -> None | set:
-        if direction not in Cell.__DIAGONAL_DIRECTIONS:
-            return None
-        return set(Cell.__STRAIGHT_DIRECTIONS - {direction[0], direction[1]})
 
     def get_straight_positions_by_directions(self) -> dict:
         return {
@@ -80,19 +41,6 @@ class Cell:
             self.__SOUTH_WEST_CODE: (self.__row_id + 1, self.col_id - 1),
             self.__NORTH_WEST_CODE: (self.__row_id - 1, self.col_id - 1)
         }
-
-    # def get_left_and_right_ways(self) -> tuple:
-    #     match self.direction:
-    #         case self.__NORTH_CODE:
-    #             return self.__WEST_CODE, self.__EAST_CODE
-    #         case self.__EAST_CODE:
-    #             return self.__NORTH_CODE, self.__SOUTH_CODE
-    #         case self.__SOUTH_CODE:
-    #             return self.__EAST_CODE, self.__WEST_CODE
-    #         case self.__WEST_CODE:
-    #             return self.__SOUTH_CODE, self.__NORTH_CODE
-    #         case _:
-    #             return ()
 
     def get_left_direction(self) -> str:
         match self.direction:
@@ -119,6 +67,12 @@ class Cell:
                 return self.__NORTH_CODE
             case _:
                 return ""
+
+    @staticmethod
+    def get_opposite_directions(direction: str) -> None | set:
+        if direction not in Cell.__DIAGONAL_DIRECTIONS:
+            return None
+        return set(Cell.__STRAIGHT_DIRECTIONS - {direction[0], direction[1]})
 
     @property
     def row_id(self):
@@ -167,7 +121,6 @@ class Cell:
     @direction.setter
     def direction(self, direction):
         self.__direction = direction
-        #if self.straight_cells and direction in self.__STRAIGHT_DIRECTIONS:
 
     @property
     def prec_cell(self):
