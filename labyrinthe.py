@@ -1,6 +1,8 @@
 import random
+import sys
 import threading
 import time
+from pathlib import Path
 
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtGui import QPixmap
@@ -19,6 +21,7 @@ class Labyrinth(QtWidgets.QWidget):
     __FINISH_LETTER = "A"
     __PERSON_LETTER = "X"
     __WINDOW_TITLE = "Labyrinthe"
+    __IMG_DIR = "img"
     __WALL_IMG = "mur.webp"
     __STONE_IMG = "caillou.png"
     __BG_COLOR_OF_CELL_IN_PATH = "rgba(150, 150, 150, 0.5)"
@@ -31,7 +34,7 @@ class Labyrinth(QtWidgets.QWidget):
         self.__nb_rows_grid = len(self.__grid)
         self.__nb_cols_grid = len(self.__grid[0])
         self.__total_path = []
-        self.__optimized_path = []
+        self.__short_path = []
         self.__start_cell: None | Cell = None
         self.__finish_cell: None | Cell = None
         self.__current_cell: None | Cell = None
@@ -68,41 +71,31 @@ class Labyrinth(QtWidgets.QWidget):
             case self.__FINISH_VALUE:
                 label.setText(self.__FINISH_LETTER)
             case self.__WALL_VALUE:
-                label.setPixmap(QPixmap(self.__WALL_IMG))
+                label.setPixmap(QPixmap(Path(self.__IMG_DIR) / self.__WALL_IMG))
         return label
 
     def __init_cells_around_cells(self):
+        # Initialisation, autour de chaque case, des cases selon leur direction, afin de pouvoir par la suite accéder
+        # facilement par exemple à la case à gauche de celle à gauche de la case courante, ou à la case à droite de
+        # celle à droite de la case courante (en faisant cell.left_cell.left_cell ou cell.right_cell.right_cell)
         for row in self.__grid:
             for cell in row:
-                cell.straight_cells = self.__get_straight_cells_by_directions(cell)
-                cell.diagonal_cells = self.__get_diagonal_cells_by_directions(cell)
+                self.__current_cell = cell
+                self.__current_cell.closest_cells_by_directions = self.__get_closest_cells_by_directions()
 
-    def __get_diagonal_cells_by_directions(self, cell: None | Cell = None) -> dict:
-        cell = cell if cell else self.__current_cell
-        positions_by_directions = cell.get_diagonal_positions_by_directions()
-        return self.__get_cells_by_directions(positions_by_directions)
+    #
+    def __get_closest_cells_by_directions(self):
+        closest_cells_by_directions = {}
 
-    def __get_straight_cells_by_directions(self, cell: None | Cell = None) -> dict:
-        cell = cell if cell else self.__current_cell
-        positions_by_directions = cell.get_straight_positions_by_directions()
-        return self.__get_cells_by_directions(positions_by_directions)
+        for direction, pos in self.__current_cell.get_positions_by_directions().items():
+            if self.__is_pos_in_grid(pos):
+                cell = self.__grid[pos[0]][pos[1]]
+                closest_cells_by_directions[direction] = cell
 
-    def __get_cells_by_directions(self, positions_by_directions):
-        cells_by_directions = {}
-        for direction, pos in positions_by_directions.items():
-            if not self.__is_pos_in_grid(pos):
-                continue
-            cell = self.__grid[pos[0]][pos[1]]
-            cell.direction = direction
-            cells_by_directions[direction] = cell
-        return cells_by_directions
+        return closest_cells_by_directions
 
     def __is_pos_in_grid(self, pos: tuple) -> bool:
         return pos[0] in range(self.__nb_rows_grid) and pos[1] in range(self.__nb_cols_grid)
-
-    def __get_authorised_next_cells_by_directions(self) -> dict:
-        return {direction: cell for direction, cell in self.__get_straight_cells_by_directions().items()
-                if cell.authorisation}
 
     def __find_the_exit(self):
         self.__init_start_and_finish_cells()
@@ -111,17 +104,14 @@ class Labyrinth(QtWidgets.QWidget):
             self.__add_cell(next_cell)
             print(self.__current_cell.row_id, self.__current_cell.col_id)
             next_cell = self.__get_next_cell()
-            # if next_cell:
-            #     next_cell.direction = self.__get_key_by_value(self.__current_cell.straight_cells, next_cell)
 
     def __get_next_cell(self) -> None | Cell:
-        authorised_next_cells_by_directions = self.__get_authorised_next_cells_by_directions()
-        if not authorised_next_cells_by_directions or self.__current_cell == self.__finish_cell:
+        if not self.__current_cell.authorised_next_cells_by_directions or self.__current_cell == self.__finish_cell:
             return None
 
-        authorised_next_cells = list(authorised_next_cells_by_directions.values())
+        authorised_next_cells = list(self.__current_cell.authorised_next_cells_by_directions.values())
 
-        # si la case finale figure parmi les cases possibles, on la choisit
+        # si la case finale figure parmi celles possibles, on la choisit
         if self.__finish_cell in authorised_next_cells:
             return self.__finish_cell
 
@@ -129,28 +119,14 @@ class Labyrinth(QtWidgets.QWidget):
         if not self.__current_cell.prec_cell:
             return random.choice(authorised_next_cells)
 
-        # si on peut aller tout droit, que la case courante et la case précédente ont la même direction et que la case
-        # à gauche de la case courante est autorisée ainsi que celle à gauche de la case précédente, on enlève de la
-        # liste des déplacements possibles la case à gauche de la case courante. De même pour les cases à droite.
-        # Ceci permet d'obliger à aller tout droit (la plupart du temps en théorie) même quand on n'est pas dans un
-        # couloir, sauf si on arrive à un carrefour.
-        if self.__current_cell.direction in authorised_next_cells_by_directions:
+        # On ne va pas à gauche, sauf si on est dans un couloir et qu'un passage apparaît à gauche. De même pour la
+        # droite, on ne va pas à droite sauf si une issue apparaît à droite. Cela permet d'aller tout droit la
+        # plupart du temps pour arriver plus vite à la fin.
+        if self.__current_cell.is_left_cell_to_remove_from_authorised_next_cells():
+            authorised_next_cells.remove(self.__current_cell.left_cell)
 
-            if (self.__current_cell.left_cell and
-                    self.__current_cell.left_cell.authorisation and
-                    self.__current_cell.left_cell.left_cell and
-                    ((self.__current_cell.left_cell.left_cell != self.__current_cell.prec_cell.prec_cell and
-                      self.__current_cell.left_cell.left_cell.authorisation) or
-                     self.__current_cell.left_cell.left_cell == self.__current_cell.prec_cell.prec_cell)):
-                authorised_next_cells.remove(self.__current_cell.left_cell)
-
-            if (self.__current_cell.right_cell and
-                    self.__current_cell.right_cell.authorisation and
-                    self.__current_cell.right_cell.right_cell and
-                    ((self.__current_cell.right_cell.right_cell != self.__current_cell.prec_cell.prec_cell and
-                      self.__current_cell.right_cell.right_cell.authorisation) or
-                     self.__current_cell.right_cell.right_cell == self.__current_cell.prec_cell.prec_cell)):
-                authorised_next_cells.remove(self.__current_cell.right_cell)
+        if self.__current_cell.is_right_cell_to_remove_from_authorised_next_cells():
+            authorised_next_cells.remove(self.__current_cell.right_cell)
 
         # s'il y a au moins une case possible en plus de la précédente, on ne revient pas sur cette dernière
         if len(authorised_next_cells) > 1 and self.__current_cell.prec_cell in authorised_next_cells:
@@ -158,58 +134,35 @@ class Labyrinth(QtWidgets.QWidget):
 
         return random.choice(authorised_next_cells)
 
-    def __is_diagonal_direction_in_front_of_corner(self, direction: str) -> bool:
-        straight_cells_by_directions = self.__get_straight_cells_by_directions()
-        for opposite_direction in Cell.get_opposite_directions(direction):
-            if opposite_direction not in straight_cells_by_directions:
-                continue
-            opposite_cell = straight_cells_by_directions[opposite_direction]
-            if opposite_cell.authorisation:
-                return False
-        return True
-
-    def __is_current_cell_in_open_corner(self) -> bool:
-        # un coin "ouvert" est un coin qui n'est pas dans un couloir, donc si on met un caillou sur cette position
-        # courante, on ne risque pas de créer un cul-de-sac.
-        diagonal_cells_by_directions = self.__get_diagonal_cells_by_directions()
-        for direction, cell in diagonal_cells_by_directions.items():
-            if cell.authorisation and self.__is_diagonal_direction_in_front_of_corner(direction):
-                return True
-        return False
-
-    def __is_current_cell_in_cul_de_sac(self) -> bool:
-        return len(self.__get_authorised_next_cells_by_directions()) == 1
-
-    def __update_optimized_path(self, cell: Cell):
-        if cell not in self.__optimized_path:
-            self.__optimized_path.append(cell)
-        elif cell == self.__optimized_path[-2]:
-            self.__remove_cell_from_optimized_path(with_timer_delay=False)
+    def __update_short_path(self, cell: Cell):
+        if cell not in self.__short_path:
+            self.__short_path.append(cell)
+        elif cell == self.__short_path[-2]:
+            self.__remove_cell_from_short_path(with_timer_delay=False)
         # quand on est sur une case, si on a fait une boucle, on l'enlève
-        self.__remove_possible_loop_from_optimized_path()
+        self.__remove_possible_loop_from_short_path()
 
-    def __remove_possible_loop_from_optimized_path(self):
-        index_current_cell = min_index_possible_cell = len(self.__optimized_path) - 1
-        cells = self.__get_straight_cells_by_directions().values()
+    def __remove_possible_loop_from_short_path(self):
+        index_current_cell = min_index_possible_cell = len(self.__short_path) - 1
+        cells = self.__current_cell.h_and_v_closest_cells_by_directions.values()
 
         for cell in cells:
-            if cell in self.__optimized_path:
-                index_cell = self.__optimized_path.index(cell)
+            if cell in self.__short_path:
+                index_cell = self.__short_path.index(cell)
                 if index_cell < min_index_possible_cell:
                     min_index_possible_cell = index_cell
 
-        diff = index_current_cell - min_index_possible_cell
-        if diff < 3:
+        if index_current_cell - min_index_possible_cell < 3:
             return
 
         # on crée une liste de cellules à supprimer car on ne peut pas les supprimer via leur index en bouclant
-        # directement sur self.__optimized_path
+        # directement sur self.__short_path
         cells_to_remove = []
         for i in range(min_index_possible_cell + 1, index_current_cell):
-            cells_to_remove.append(self.__optimized_path[i])
+            cells_to_remove.append(self.__short_path[i])
 
         for cell in reversed(cells_to_remove):
-            self.__remove_cell_from_optimized_path(cell=cell, with_timer_delay=False)
+            self.__remove_cell_from_short_path(cell=cell, with_timer_delay=False)
 
     def __init_start_and_finish_cells(self):
         for row in self.__grid:
@@ -224,18 +177,16 @@ class Labyrinth(QtWidgets.QWidget):
     def __add_cell(self, cell: Cell):
         time.sleep(self.__TIMER_DELAY)
         cell.prec_cell = self.__current_cell
-        self.__total_path.append(cell)
-        self.__current_cell = cell
-        # cell.left_cell = cell.straight_cells.get(cell.get_left_direction())
-        # cell.right_cell = cell.straight_cells.get(cell.get_right_direction())
         cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_IN_PATH};")
         cell.label.setText(self.__PERSON_LETTER)
+        self.__total_path.append(cell)
+        self.__current_cell = cell
 
         # cas où on met un caillou sur la case pour ne pas y revenir
-        if self.__is_current_cell_in_open_corner() or self.__is_current_cell_in_cul_de_sac():
+        if self.__current_cell.is_in_cul_de_sac() or self.__current_cell.is_in_open_corner():
             self.__current_cell.authorisation = False
 
-        self.__update_optimized_path(cell)
+        self.__update_short_path(cell)
 
         if not cell.prec_cell:
             return
@@ -243,19 +194,19 @@ class Labyrinth(QtWidgets.QWidget):
         if cell.prec_cell == self.__start_cell:
             label.setText(self.__START_LETTER)
         elif not cell.prec_cell.authorisation:
-            label.setPixmap(QPixmap(self.__STONE_IMG))
+            label.setPixmap(QPixmap(Path(self.__IMG_DIR) / self.__STONE_IMG))
         else:
             label.setText("")
 
-    def __remove_cell_from_optimized_path(self, cell: None | Cell = None, with_timer_delay=True):
+    def __remove_cell_from_short_path(self, cell: None | Cell = None, with_timer_delay=True):
         if with_timer_delay:
             time.sleep(self.__TIMER_DELAY)
         # s'il n'y a qu'un élément c'est forcément le point de départ, donc on ne l'enlève pas
-        if len(self.__optimized_path) == 1:
+        if len(self.__short_path) == 1:
             return
         if not cell:
-            cell = self.__optimized_path[-1]
-        self.__optimized_path.remove(cell)
+            cell = self.__short_path[-1]
+        self.__short_path.remove(cell)
         cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_NOT_IN_PATH};")
 
     def __show_grid(self):
@@ -286,12 +237,6 @@ class Labyrinth(QtWidgets.QWidget):
         layout.addWidget(group)
         self.setLayout(layout)
         threading.Thread(target=self.__find_the_exit).start()
-
-    #@staticmethod
-    # def __get_key_by_value(dictionnaire: dict, value):
-    #     for key, val in dictionnaire.items():
-    #         if val == value:
-    #             return key
 
 
 if __name__ == '__main__':
@@ -336,7 +281,7 @@ if __name__ == '__main__':
         [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
         [0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0],
         [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-        [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 2, 0, 0],
+        [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
         [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
         [1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
         [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
@@ -344,7 +289,7 @@ if __name__ == '__main__':
         [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
         [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0],
+        [0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0],
         [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
         [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0]
     ]
@@ -353,4 +298,4 @@ if __name__ == '__main__':
     app = QtWidgets.QApplication([])
     labyrinth = Labyrinth(grid)
     labyrinth.show()
-    app.exec()
+    sys.exit(app.exec())
