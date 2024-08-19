@@ -4,13 +4,15 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6 import QtWidgets, QtCore
-from PySide6.QtGui import QPixmap
+from PySide6 import QtWidgets as QtW, QtCore
+from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QPixmap, QAction, QIcon
+#from PySide6.QtWidgets import QLabel, QWidget, QGridLayout, QMainWindow
 
 from cell import Cell
 
 
-class Labyrinth(QtWidgets.QWidget):
+class Labyrinth(QtW.QMainWindow):
     __PATH_VALUE = 0
     __WALL_VALUE = 1
     __START_VALUE = 2
@@ -26,45 +28,83 @@ class Labyrinth(QtWidgets.QWidget):
     __STONE_IMG = "caillou.png"
     __BG_COLOR_OF_CELL_IN_PATH = "rgba(150, 150, 150, 0.5)"
     __BG_COLOR_OF_CELL_NOT_IN_PATH = "none"
+    __WITHOUT_PATH_DISPLAY = "Aucun"
+    __SHORT_PATH_DISPLAY = "Court"
+    __TOTAL_PATH_DISPLAY = "Long"
+    __LBL_PLAY = "Play"
+    __LBL_PAUSE = "Pause"
 
     def __init__(self, grid: list[list[int]]):
         super().__init__()
-        if not self.__set_grid(grid):
-            exit()
-        self.__nb_rows_grid = len(self.__grid)
-        self.__nb_cols_grid = len(self.__grid[0])
+        #self.__init(grid)
+        self.__is_running = False
+        self.__path_display = self.__SHORT_PATH_DISPLAY
+        #self.__init_grid(grid)
+        self.__display_window()
+        self.__display_grid(grid)
+        self.cpt = 0
+        # self.__grid = []
+        # self.__total_path = []
+        # self.__short_path = []
+        # self.__path_display = self.__SHORT_PATH_DISPLAY
+        # self.__start_cell: None | Cell = None
+        # self.__finish_cell: None | Cell = None
+        # self.__current_cell: None | Cell = None
+        # if not self.__set_grid(grid):
+        #     exit()
+        # self.__nb_rows_grid = len(self.__grid)
+        # self.__nb_cols_grid = len(self.__grid[0])
+        # self.__init_cells_around_cells()
+        # self.__is_running = False
+        # self.__show_grid()
+
+    def __init_grid(self, grid: list[list[int]]):
+        self.__grid = []
         self.__total_path = []
         self.__short_path = []
         self.__start_cell: None | Cell = None
         self.__finish_cell: None | Cell = None
         self.__current_cell: None | Cell = None
+        if not self.__set_grid(grid):
+            exit()
+        self.__nb_rows_grid = len(self.__grid)
+        self.__nb_cols_grid = len(self.__grid[0])
         self.__init_cells_around_cells()
-        self.__show_grid()
+        #self.__is_running = False
+        #self.__show_grid()
 
     def __set_grid(self, grid: list[list[int]]) -> bool:
         if type(grid) is not list:
             return False
-        for row in grid:
+        for row_id, row in enumerate(grid):
             if type(row) is not list:
                 return False
-            for cell in row:
-                if type(cell) is not int or cell not in self.__AUTHORISED_VALUES:
+            self.__grid.append([])
+            for col_id, value in enumerate(row):
+                if type(value) is not int or value not in self.__AUTHORISED_VALUES:
                     return False
 
-        # les cases avec "authorisation" à False sont celles où on ne peut pas aller car il y a un mur ou un caillou
-        # dessus. Ces derniers sont éventuellement ajoutés pendant le parcours sur les cases situées dans les
-        # culs-de-sacs, en bordure de grille ou dans un "coin ouvert" (deux murs à 90° avec la case opposée dans la
-        # diagonale qui est vide afin de ne pas créer un cul-de-sac)
-        self.__grid = [[Cell(row_id=row_id,
-                             col_id=col_id,
-                             value=value,
-                             authorisation=False if value == self.__WALL_VALUE else True,
-                             label=self.__get_label_by_value(value))
-                        for col_id, value in enumerate(row)] for row_id, row in enumerate(grid)]
+                # les cases avec "authorisation" à False sont celles où on ne peut pas aller car il y a un mur ou un
+                # caillou dessus. Ces derniers sont éventuellement ajoutés pendant le parcours sur les cases situées
+                # dans les culs-de-sacs, en bordure de grille ou dans un "coin ouvert" (deux murs à 90° avec la case
+                # opposée dans la diagonale qui est vide afin de ne pas créer un cul-de-sac)
+                cell = Cell(row_id=row_id,
+                            col_id=col_id,
+                            value=value,
+                            authorisation=False if value == self.__WALL_VALUE else True,
+                            label=self.__get_label_by_value(value))
+
+                self.__grid[row_id].append(cell)
+
+                if value == self.__START_VALUE:
+                    self.__start_cell = cell
+                elif value == self.__FINISH_VALUE:
+                    self.__finish_cell = cell
+
         return True
 
-    def __get_label_by_value(self, value: int) -> QtWidgets.QLabel:
-        label = QtWidgets.QLabel()
+    def __get_label_by_value(self, value: int) -> QtW.QLabel:
+        label = QtW.QLabel()
         match value:
             case self.__START_VALUE:
                 label.setText(self.__START_LETTER)
@@ -98,12 +138,12 @@ class Labyrinth(QtWidgets.QWidget):
         return pos[0] in range(self.__nb_rows_grid) and pos[1] in range(self.__nb_cols_grid)
 
     def __find_the_exit(self):
-        self.__init_start_and_finish_cells()
         next_cell = self.__start_cell
         while next_cell:
             self.__add_cell(next_cell)
             print(self.__current_cell.row_id, self.__current_cell.col_id)
             next_cell = self.__get_next_cell()
+        self.__is_running = False
 
     def __get_next_cell(self) -> None | Cell:
         if not self.__current_cell.authorised_next_cells_by_directions or self.__current_cell == self.__finish_cell:
@@ -164,20 +204,11 @@ class Labyrinth(QtWidgets.QWidget):
         for cell in reversed(cells_to_remove):
             self.__remove_cell_from_short_path(cell=cell, with_timer_delay=False)
 
-    def __init_start_and_finish_cells(self):
-        for row in self.__grid:
-            for cell in row:
-                if cell.value == self.__START_VALUE:
-                    self.__start_cell = cell
-                elif cell.value == self.__FINISH_VALUE:
-                    self.__finish_cell = cell
-                if self.__start_cell and self.__finish_cell:
-                    return
-
     def __add_cell(self, cell: Cell):
         time.sleep(self.__TIMER_DELAY)
         cell.prec_cell = self.__current_cell
-        cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_IN_PATH};")
+        if self.__path_display != self.__WITHOUT_PATH_DISPLAY:
+            cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_IN_PATH};")
         cell.label.setText(self.__PERSON_LETTER)
         self.__total_path.append(cell)
         self.__current_cell = cell
@@ -207,50 +238,139 @@ class Labyrinth(QtWidgets.QWidget):
         if not cell:
             cell = self.__short_path[-1]
         self.__short_path.remove(cell)
-        cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_NOT_IN_PATH};")
+        if self.__path_display != self.__TOTAL_PATH_DISPLAY:
+            cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_NOT_IN_PATH};")
 
-    def __show_grid(self):
+    def __display_window(self):
         self.setWindowTitle(self.__WINDOW_TITLE)
-        grid_layout = QtWidgets.QGridLayout()
-        grid_layout.setSpacing(0)
-        group = QtWidgets.QGroupBox()
+        # pour empêcher que la fenêtre prenne tout l'écran si fait un double-clic dessus
+        self.setMaximumSize(50, 50)
+        #centralWidget = QtW.QWidget()
+
+        # Création de la barre d'outils avec son nom
+        toolbar = self.addToolBar("First tool bar")  # self représente la fenêtre de type QMainWindow
+
+        comboBox = QtW.QComboBox()
+        comboBox.addItems([self.__WITHOUT_PATH_DISPLAY, self.__SHORT_PATH_DISPLAY, self.__TOTAL_PATH_DISPLAY])
+        comboBox.setCurrentText(self.__path_display)
+        comboBox.currentTextChanged.connect(self.comboBox_pathDisplaySlot)
+        toolbar.addWidget(comboBox)
+
+        buttonPlay = QtW.QPushButton(self.__LBL_PLAY)
+        buttonPlay.clicked.connect(self.button_playSlot)
+        toolbar.addWidget(buttonPlay)
+
+    def __display_grid(self, grid: list[list[int]]):
+        self.__init_grid(grid)
+        #gridLayout = QtW.QGridLayout()
+        gridLayout = QtW.QGridLayout()
+        gridLayout.setSpacing(0)
+        label_size = 30
 
         for i in range(self.__nb_rows_grid):
             for j in range(self.__nb_cols_grid):
                 if i == 0:
-                    label = QtWidgets.QLabel(str(j))
-                    label.setFixedSize(30, 30)
-                    label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-                    grid_layout.addWidget(label, i, j + 1)
+                    label = QtW.QLabel(str(j))
+                    label.setFixedSize(label_size, label_size)
+                    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    gridLayout.addWidget(label, i, j + 1)
                 if j == 0:
-                    label = QtWidgets.QLabel(str(i))
-                    label.setFixedSize(30, 30)
-                    label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-                    grid_layout.addWidget(label, i + 1, j)
+                    label = QtW.QLabel(str(i))
+                    label.setFixedSize(label_size, label_size)
+                    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    gridLayout.addWidget(label, i + 1, j)
                 label = self.__grid[i][j].label
-                label.setFixedSize(30, 30)
-                label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-                grid_layout.addWidget(label, i + 1, j + 1)
+                label.setFixedSize(label_size, label_size)
+                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                gridLayout.addWidget(label, i + 1, j + 1)
 
-        group.setLayout(grid_layout)
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(group)
-        self.setLayout(layout)
-        threading.Thread(target=self.__find_the_exit).start()
+        centralWidget = QtW.QWidget()
+        centralWidget.setLayout(gridLayout)
+        self.setCentralWidget(centralWidget)
+
+    # def __init_grid(self):
+    #     pass
+
+    # def __show_grid(self):
+    #     self.setWindowTitle(self.__WINDOW_TITLE)
+    #     # pour empêcher que la fenêtre prenne tout l'écran si fait un double-clic dessus
+    #     self.setMaximumSize(50, 50)
+    #     gridLayout = QtW.QGridLayout()
+    #     gridLayout.setSpacing(0)
+    #     centralWidget = QtW.QWidget()
+    #     label_size = 30
+    #
+    #     for i in range(self.__nb_rows_grid):
+    #         for j in range(self.__nb_cols_grid):
+    #             if i == 0:
+    #                 label = QtW.QLabel(str(j))
+    #                 label.setFixedSize(label_size, label_size)
+    #                 label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    #                 gridLayout.addWidget(label, i, j + 1)
+    #             if j == 0:
+    #                 label = QtW.QLabel(str(i))
+    #                 label.setFixedSize(label_size, label_size)
+    #                 label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    #                 gridLayout.addWidget(label, i + 1, j)
+    #             label = self.__grid[i][j].label
+    #             label.setFixedSize(label_size, label_size)
+    #             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    #             gridLayout.addWidget(label, i + 1, j + 1)
+    #
+    #     centralWidget.setLayout(gridLayout)
+    #     self.setCentralWidget(centralWidget)
+    #
+    #     #toolBar = self.addToolBar("toolbar")
+    #
+    #
+    #     # Création de la barre d'outils avec son nom
+    #     toolbar = self.addToolBar("First tool bar")  # self représente la fenêtre de type QMainWindow
+    #
+    #     comboBox = QtW.QComboBox()
+    #     comboBox.addItems([self.__WITHOUT_PATH_DISPLAY, self.__SHORT_PATH_DISPLAY, self.__TOTAL_PATH_DISPLAY])
+    #     comboBox.setCurrentText(self.__path_display)
+    #     comboBox.currentTextChanged.connect(self.comboBox_pathDisplaySlot)
+    #     #comboBox.setFixedSize(100, 100)
+    #     toolbar.addWidget(comboBox)
+    #
+    #     buttonPlay = QtW.QPushButton(self.__LBL_PLAY)
+    #     buttonPlay.clicked.connect(self.button_playSlot)
+    #     toolbar.addWidget(buttonPlay)
+
+        # threading.Thread(target=self.__find_the_exit).start()
+
+    @Slot()
+    def button_playSlot(self):
+        #if button.text() == self.__LBL_PLAY:
+        if not self.__is_running:
+            #if self.cpt > 0:
+            #self.__init_grid(grid)
+            self.__display_grid(grid)
+            #button: QtW.QPushButton = self.sender()
+            #print(button.text())
+            threading.Thread(target=self.__find_the_exit).start()
+            #button.setText(self.__LBL_PAUSE)
+            self.__is_running = True
+            self.cpt += 1
+
+    @Slot()
+    def comboBox_pathDisplaySlot(self):
+        combo = self.sender()
+        print(combo.currentText())
 
 
 if __name__ == '__main__':
-    # grid = [
-    #     [1, 1, 0, 1, 0, 1, 0, 1, 3, 1],
-    #     [1, 2, 0, 1, 0, 0, 0, 0, 0, 1],
-    #     [1, 1, 0, 1, 0, 1, 1, 1, 1, 1],
-    #     [1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-    #     [1, 1, 0, 1, 0, 0, 1, 1, 1, 1],
-    #     [1, 1, 0, 1, 1, 0, 1, 0, 0, 0],
-    #     [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-    #     [1, 1, 0, 1, 1, 1, 1, 0, 0, 0],
-    #     [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
-    # ]
+    grid = [
+        [1, 1, 0, 1, 0, 1, 0, 1, 3, 1],
+        [1, 2, 0, 1, 0, 0, 0, 0, 0, 1],
+        [1, 1, 0, 1, 0, 1, 1, 1, 1, 1],
+        [1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+        [1, 1, 0, 1, 0, 0, 1, 1, 1, 1],
+        [1, 1, 0, 1, 1, 0, 1, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+        [1, 1, 0, 1, 1, 1, 1, 0, 0, 0],
+        [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
+    ]
 
     # grid = [
     #     [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -267,35 +387,43 @@ if __name__ == '__main__':
     #     [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
     # ]
 
-    grid = [
-        [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
-        [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 3],
-        [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
-        [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
-        [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-        [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0],
-        [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-        [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
-        [1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
-        [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
-        [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
-        [0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0],
-        [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0]
-    ]
+    # grid = [
+    #     [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    #     [1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 3],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
+    #     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+    #     [0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0],
+    #     [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    #     [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+    #     [1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
+    #     [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
+    #     [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
+    #     [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
+    #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+    #     [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
+    #     [0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0],
+    #     [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
+    #     [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0]
+    # ]
 
     # Création de l'application
-    app = QtWidgets.QApplication([])
+    app = QtW.QApplication(sys.argv)
+    qss = "labyrinth"
+    #qss = "darkorange"
+
+    with open(f"styles/{qss}.qss", "r") as f:
+        #print(f.read())
+        app.setStyleSheet(f.read())
+
     labyrinth = Labyrinth(grid)
+    #labyrinth.setStyleSheet(f.read())
     labyrinth.show()
     sys.exit(app.exec())
