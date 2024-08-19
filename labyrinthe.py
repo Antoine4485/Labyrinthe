@@ -36,27 +36,10 @@ class Labyrinth(QtW.QMainWindow):
 
     def __init__(self, grid: list[list[int]]):
         super().__init__()
-        #self.__init(grid)
         self.__is_running = False
-        self.__path_display = self.__SHORT_PATH_DISPLAY
-        #self.__init_grid(grid)
+        self.__path_display = self.__TOTAL_PATH_DISPLAY
         self.__display_window()
         self.__display_grid(grid)
-        self.cpt = 0
-        # self.__grid = []
-        # self.__total_path = []
-        # self.__short_path = []
-        # self.__path_display = self.__SHORT_PATH_DISPLAY
-        # self.__start_cell: None | Cell = None
-        # self.__finish_cell: None | Cell = None
-        # self.__current_cell: None | Cell = None
-        # if not self.__set_grid(grid):
-        #     exit()
-        # self.__nb_rows_grid = len(self.__grid)
-        # self.__nb_cols_grid = len(self.__grid[0])
-        # self.__init_cells_around_cells()
-        # self.__is_running = False
-        # self.__show_grid()
 
     def __init_grid(self, grid: list[list[int]]):
         self.__grid = []
@@ -70,8 +53,6 @@ class Labyrinth(QtW.QMainWindow):
         self.__nb_rows_grid = len(self.__grid)
         self.__nb_cols_grid = len(self.__grid[0])
         self.__init_cells_around_cells()
-        #self.__is_running = False
-        #self.__show_grid()
 
     def __set_grid(self, grid: list[list[int]]) -> bool:
         if type(grid) is not list:
@@ -245,10 +226,7 @@ class Labyrinth(QtW.QMainWindow):
         self.setWindowTitle(self.__WINDOW_TITLE)
         # pour empêcher que la fenêtre prenne tout l'écran si fait un double-clic dessus
         self.setMaximumSize(50, 50)
-        #centralWidget = QtW.QWidget()
-
-        # Création de la barre d'outils avec son nom
-        toolbar = self.addToolBar("First tool bar")  # self représente la fenêtre de type QMainWindow
+        toolbar = self.addToolBar("")
 
         comboBox = QtW.QComboBox()
         comboBox.addItems([self.__WITHOUT_PATH_DISPLAY, self.__SHORT_PATH_DISPLAY, self.__TOTAL_PATH_DISPLAY])
@@ -262,7 +240,6 @@ class Labyrinth(QtW.QMainWindow):
 
     def __display_grid(self, grid: list[list[int]]):
         self.__init_grid(grid)
-        #gridLayout = QtW.QGridLayout()
         gridLayout = QtW.QGridLayout()
         gridLayout.setSpacing(0)
         label_size = 30
@@ -288,75 +265,25 @@ class Labyrinth(QtW.QMainWindow):
         centralWidget.setLayout(gridLayout)
         self.setCentralWidget(centralWidget)
 
-    # def __init_grid(self):
-    #     pass
-
-    # def __show_grid(self):
-    #     self.setWindowTitle(self.__WINDOW_TITLE)
-    #     # pour empêcher que la fenêtre prenne tout l'écran si fait un double-clic dessus
-    #     self.setMaximumSize(50, 50)
-    #     gridLayout = QtW.QGridLayout()
-    #     gridLayout.setSpacing(0)
-    #     centralWidget = QtW.QWidget()
-    #     label_size = 30
-    #
-    #     for i in range(self.__nb_rows_grid):
-    #         for j in range(self.__nb_cols_grid):
-    #             if i == 0:
-    #                 label = QtW.QLabel(str(j))
-    #                 label.setFixedSize(label_size, label_size)
-    #                 label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    #                 gridLayout.addWidget(label, i, j + 1)
-    #             if j == 0:
-    #                 label = QtW.QLabel(str(i))
-    #                 label.setFixedSize(label_size, label_size)
-    #                 label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    #                 gridLayout.addWidget(label, i + 1, j)
-    #             label = self.__grid[i][j].label
-    #             label.setFixedSize(label_size, label_size)
-    #             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    #             gridLayout.addWidget(label, i + 1, j + 1)
-    #
-    #     centralWidget.setLayout(gridLayout)
-    #     self.setCentralWidget(centralWidget)
-    #
-    #     #toolBar = self.addToolBar("toolbar")
-    #
-    #
-    #     # Création de la barre d'outils avec son nom
-    #     toolbar = self.addToolBar("First tool bar")  # self représente la fenêtre de type QMainWindow
-    #
-    #     comboBox = QtW.QComboBox()
-    #     comboBox.addItems([self.__WITHOUT_PATH_DISPLAY, self.__SHORT_PATH_DISPLAY, self.__TOTAL_PATH_DISPLAY])
-    #     comboBox.setCurrentText(self.__path_display)
-    #     comboBox.currentTextChanged.connect(self.comboBox_pathDisplaySlot)
-    #     #comboBox.setFixedSize(100, 100)
-    #     toolbar.addWidget(comboBox)
-    #
-    #     buttonPlay = QtW.QPushButton(self.__LBL_PLAY)
-    #     buttonPlay.clicked.connect(self.button_playSlot)
-    #     toolbar.addWidget(buttonPlay)
-
-        # threading.Thread(target=self.__find_the_exit).start()
+    def __update_styleSheet_path(self):
+        for cell in self.__total_path:
+            if self.__path_display == self.__WITHOUT_PATH_DISPLAY or \
+                    self.__path_display == self.__SHORT_PATH_DISPLAY and cell not in self.__short_path:
+                cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_NOT_IN_PATH};")
+            else:
+                cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_IN_PATH};")
 
     @Slot()
     def button_playSlot(self):
-        #if button.text() == self.__LBL_PLAY:
         if not self.__is_running:
-            #if self.cpt > 0:
-            #self.__init_grid(grid)
             self.__display_grid(grid)
-            #button: QtW.QPushButton = self.sender()
-            #print(button.text())
             threading.Thread(target=self.__find_the_exit).start()
-            #button.setText(self.__LBL_PAUSE)
             self.__is_running = True
-            self.cpt += 1
 
     @Slot()
     def comboBox_pathDisplaySlot(self):
-        combo = self.sender()
-        print(combo.currentText())
+        self.__path_display = self.sender().currentText()
+        self.__update_styleSheet_path()
 
 
 if __name__ == '__main__':
