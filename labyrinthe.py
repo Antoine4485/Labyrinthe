@@ -10,6 +10,7 @@ from PySide6.QtGui import QPixmap, QAction, QIcon, Qt
 #from PySide6.QtWidgets import QLabel, QWidget, QGridLayout, QMainWindow
 
 from cell import Cell
+from data import Grids
 
 
 class Labyrinth(QtW.QMainWindow):
@@ -33,29 +34,32 @@ class Labyrinth(QtW.QMainWindow):
     __LBL_PLAY = "Play"
     __LBL_STOP = "Stop"
 
-    def __init__(self, grid: list[list[int]]):
+    def __init__(self):
         super().__init__()
+        self.__grids = Grids()
+        self.__grid_size = self.__grids.SMALL_GRID_SIZE
         self.__path_display = self.__TOTAL_PATH_DISPLAY
         self.__event: None | threading.Event = None
         self.__thread: None | threading.Thread = None
-        self.__timer_delay = 0.5
+        self.__timer_delay = 0.2
         self.__display_window()
-        self.__display_grid(grid)
+        self.__display_grid()
 
-    def __init_grid(self, grid: list[list[int]]):
+    def __init_grid(self):
         self.__grid = []
         self.__total_path = []
         self.__short_path = []
         self.__start_cell: None | Cell = None
         self.__finish_cell: None | Cell = None
         self.__current_cell: None | Cell = None
-        if not self.__set_grid(grid):
+        if not self.__set_grid():
             exit()
         self.__nb_rows_grid = len(self.__grid)
         self.__nb_cols_grid = len(self.__grid[0])
         self.__init_cells_around_cells()
 
-    def __set_grid(self, grid: list[list[int]]) -> bool:
+    def __set_grid(self) -> bool:
+        grid = self.__grids.grids[self.__grid_size]
         if type(grid) is not list:
             return False
         for row_id, row in enumerate(grid):
@@ -224,26 +228,43 @@ class Labyrinth(QtW.QMainWindow):
         if self.__path_display != self.__TOTAL_PATH_DISPLAY:
             cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_NOT_IN_PATH};")
 
+    def __update_styleSheet_path(self):
+        for cell in self.__total_path:
+            if self.__path_display == self.__WITHOUT_PATH_DISPLAY or \
+                    self.__path_display == self.__SHORT_PATH_DISPLAY and cell not in self.__short_path:
+                cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_NOT_IN_PATH};")
+            else:
+                cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_IN_PATH};")
+
     def __display_window(self):
         self.setWindowTitle(self.__WINDOW_TITLE)
-        # pour empêcher que la fenêtre prenne tout l'écran si fait un double-clic dessus
+        # la ligne suivante empêche que la fenêtre prenne tout l'écran si on double-clique dessus
         self.setMaximumSize(50, 50)
         toolbar = self.addToolBar("")
 
-        comboBox = QtW.QComboBox()
-        comboBox.addItems([self.__WITHOUT_PATH_DISPLAY, self.__SHORT_PATH_DISPLAY, self.__TOTAL_PATH_DISPLAY])
-        comboBox.setCurrentText(self.__path_display)
-        comboBox.currentTextChanged.connect(self.__comboBox_pathDisplaySlot)
-        toolbar.addWidget(comboBox)
+        # choix de la grille
+        cmbBox_gridSize = QtW.QComboBox()
+        cmbBox_gridSize.addItems(list(self.__grids.grids.keys()))
+        cmbBox_gridSize.setCurrentText(self.__grid_size)
+        cmbBox_gridSize.currentTextChanged.connect(self.__comboBox_gridSizeSlot)
+        toolbar.addWidget(cmbBox_gridSize)
+
+        # choix du type d'affichage du parcours
+        cmbBox_pathDisplay = QtW.QComboBox()
+        cmbBox_pathDisplay.addItems([self.__WITHOUT_PATH_DISPLAY, self.__SHORT_PATH_DISPLAY, self.__TOTAL_PATH_DISPLAY])
+        cmbBox_pathDisplay.setCurrentText(self.__path_display)
+        cmbBox_pathDisplay.currentTextChanged.connect(self.__comboBox_pathDisplaySlot)
+        toolbar.addWidget(cmbBox_pathDisplay)
 
         # todo : mettre le slider en seconde
+        # affichage de l'intervalle de temps choisi entre deux déplacements
         initial_value = int(self.__timer_delay * 100)
         self.__sliderLabel = QtW.QLabel(str(initial_value))
         self.__sliderLabel.setFixedSize(20, 10)
         toolbar.addWidget(self.__sliderLabel)
 
+        # choix de l'intervalle de temps entre deux déplacements
         slider = QtW.QSlider(orientation=Qt.Orientation.Horizontal)
-        #slider.setGeometry(10, 10, 300, 40)
         slider.setMinimum(0)
         slider.setMaximum(100)
         slider.setMaximumSize(150, 20)
@@ -251,6 +272,7 @@ class Labyrinth(QtW.QMainWindow):
         slider.valueChanged.connect(self.__slider_slot)
         toolbar.addWidget(slider)
 
+        # bouton "Play"
         buttonPlay = QtW.QPushButton(self.__LBL_PLAY)
         buttonPlay.clicked.connect(self.__button_playSlot)
         toolbar.addWidget(buttonPlay)
@@ -259,8 +281,8 @@ class Labyrinth(QtW.QMainWindow):
         # buttonStop.clicked.connect(self.__button_stopSlot)
         # toolbar.addWidget(buttonStop)
 
-    def __display_grid(self, grid: list[list[int]]):
-        self.__init_grid(grid)
+    def __display_grid(self):
+        self.__init_grid()
         gridLayout = QtW.QGridLayout()
         gridLayout.setSpacing(0)
         label_size = 30
@@ -286,14 +308,6 @@ class Labyrinth(QtW.QMainWindow):
         centralWidget.setLayout(gridLayout)
         self.setCentralWidget(centralWidget)
 
-    def __update_styleSheet_path(self):
-        for cell in self.__total_path:
-            if self.__path_display == self.__WITHOUT_PATH_DISPLAY or \
-                    self.__path_display == self.__SHORT_PATH_DISPLAY and cell not in self.__short_path:
-                cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_NOT_IN_PATH};")
-            else:
-                cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_IN_PATH};")
-
     @Slot()
     def __slider_slot(self):
         delay = self.sender().value()
@@ -304,13 +318,12 @@ class Labyrinth(QtW.QMainWindow):
     def __button_stopSlot(self):
         if self.__event:
             self.__event.set()
+            self.__timer()
 
     @Slot()
     def __button_playSlot(self):
-        if self.__event:
-            self.__event.set()
-            self.__timer()
-            self.__display_grid(grid)
+        self.__button_stopSlot()
+        self.__display_grid()
         # il faut redéfinir à chaque clic sur play un nouveau thread, car on ne peut pas faire plusieurs start and
         # stop sur un même thread
         self.__event = threading.Event()
@@ -322,6 +335,16 @@ class Labyrinth(QtW.QMainWindow):
         self.__path_display = self.sender().currentText()
         self.__update_styleSheet_path()
 
+    @Slot()
+    def __comboBox_gridSizeSlot(self):
+        self.__button_stopSlot()
+        self.__grid_size = self.sender().currentText()
+        # todo : corriger le bug d'affichage qd on réduit la taille de la fenêtre
+        self.__display_grid()
+        # self.adjustSize() permet de redimensionner correctement la fenêtre lorsque l'on choisit une taille de grille
+        # inférieure
+        self.adjustSize()
+
     def __timer(self):
         # laisser cette condition pour que l'affichage soit correct dans le cas où le timer est à 0 lors du premier play
         if self.__timer_delay > 0:
@@ -329,70 +352,14 @@ class Labyrinth(QtW.QMainWindow):
 
 
 if __name__ == '__main__':
-    grid = [
-        [1, 1, 0, 1, 0, 1, 0, 1, 3, 1],
-        [1, 2, 0, 1, 0, 0, 0, 0, 0, 1],
-        [1, 1, 0, 1, 0, 1, 1, 1, 1, 1],
-        [1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-        [1, 1, 0, 1, 0, 0, 1, 1, 1, 1],
-        [1, 1, 0, 1, 1, 0, 1, 0, 0, 0],
-        [1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [1, 1, 0, 1, 1, 1, 1, 0, 0, 0],
-        [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
-    ]
-
-    # grid = [
-    #     [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-    #     [1, 0, 2, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
-    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 3],
-    #     [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1],
-    #     [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
-    #     [1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
-    #     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-    #     [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0],
-    #     [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-    #     [0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-    #     [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
-    # ]
-
-    # grid = [
-    #     [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-    #     [1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
-    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 3],
-    #     [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
-    #     [0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
-    #     [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
-    #     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-    #     [1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
-    #     [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-    #     [0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-    #     [0, 0, 0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0],
-    #     [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-    #     [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-    #     [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
-    #     [1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1],
-    #     [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1],
-    #     [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
-    #     [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
-    #     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-    #     [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 0],
-    #     [0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0],
-    #     [0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0],
-    #     [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0]
-    # ]
-
     # Création de l'application
     app = QtW.QApplication(sys.argv)
     qss = "labyrinth"
     #qss = "darkorange"
 
     with open(f"styles/{qss}.qss", "r") as f:
-        #print(f.read())
         app.setStyleSheet(f.read())
 
-    labyrinth = Labyrinth(grid)
-    #labyrinth.setStyleSheet(f.read())
+    labyrinth = Labyrinth()
     labyrinth.show()
     sys.exit(app.exec())
