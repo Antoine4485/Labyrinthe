@@ -1,7 +1,7 @@
 class Grids:
-    SMALL_GRID_SIZE = "petite"
-    MEDIUM_GRID_SIZE = "moyenne"
-    LARGE_GRID_SIZE = "grande"
+    SMALL_GRID_SIZE = "Petite"
+    MEDIUM_GRID_SIZE = "Moyenne"
+    LARGE_GRID_SIZE = "Grande"
 
     @property
     def grids(self) -> dict:

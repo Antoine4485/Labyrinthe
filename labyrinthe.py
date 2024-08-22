@@ -4,16 +4,16 @@ import threading
 import time
 from pathlib import Path
 
-from PySide6 import QtWidgets as QtW, QtCore
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QPixmap, QAction, QIcon, Qt
-#from PySide6.QtWidgets import QLabel, QWidget, QGridLayout, QMainWindow
+from PySide6.QtGui import QPixmap, QMouseEvent
+from PySide6.QtWidgets import QLabel, QWidget, QGridLayout, QMainWindow, QToolTip, QSlider, QApplication, QPushButton, \
+    QComboBox
 
 from cell import Cell
 from data import Grids
 
 
-class Labyrinth(QtW.QMainWindow):
+class Labyrinth(QMainWindow):
     __PATH_VALUE = 0
     __WALL_VALUE = 1
     __START_VALUE = 2
@@ -31,16 +31,20 @@ class Labyrinth(QtW.QMainWindow):
     __WITHOUT_PATH_DISPLAY = "Aucun"
     __SHORT_PATH_DISPLAY = "Court"
     __TOTAL_PATH_DISPLAY = "Long"
+    __PATH_DISPLAYS = [__WITHOUT_PATH_DISPLAY, __SHORT_PATH_DISPLAY, __TOTAL_PATH_DISPLAY]
     __LBL_PLAY = "Play"
+    __LBL_PAUSE = "Pause"
     __LBL_STOP = "Stop"
 
     def __init__(self):
         super().__init__()
         self.__grids = Grids()
         self.__grid_size = self.__grids.SMALL_GRID_SIZE
-        self.__path_display = self.__TOTAL_PATH_DISPLAY
-        self.__event: None | threading.Event = None
+        self.__path_display = self.__WITHOUT_PATH_DISPLAY
         self.__thread: None | threading.Thread = None
+        self.__play_event: None | threading.Event = None
+        self.__pause_event: None | threading.Event = None
+        self.__stop_event: None | threading.Event = None
         self.__timer_delay = 0.2
         self.__display_window()
         self.__display_grid()
@@ -89,8 +93,8 @@ class Labyrinth(QtW.QMainWindow):
 
         return True
 
-    def __get_label_by_value(self, value: int) -> QtW.QLabel:
-        label = QtW.QLabel()
+    def __get_label_by_value(self, value: int) -> QLabel:
+        label = QLabel()
         match value:
             case self.__START_VALUE:
                 label.setText(self.__START_LETTER)
@@ -109,7 +113,6 @@ class Labyrinth(QtW.QMainWindow):
                 self.__current_cell = cell
                 self.__current_cell.closest_cells_by_directions = self.__get_closest_cells_by_directions()
 
-    #
     def __get_closest_cells_by_directions(self):
         closest_cells_by_directions = {}
 
@@ -125,12 +128,15 @@ class Labyrinth(QtW.QMainWindow):
 
     def __find_the_exit(self):
         next_cell = self.__start_cell
-        while next_cell and not self.__event.is_set():
-            self.__add_cell(next_cell)
+        while next_cell:
+            if not self.__add_cell(next_cell):
+                break
             # il faut commenter la ligne suivante en production pour que l'affichage du chemin soit correct dans le cas
             # où le délai du timer est à 0
             # print(self.__current_cell.row_id, self.__current_cell.col_id)
             next_cell = self.__get_next_cell()
+        self.__thread = None
+        self.__buttonPlayPause.setText(self.__LBL_PLAY)
 
     def __get_next_cell(self) -> None | Cell:
         if not self.__current_cell.authorised_next_cells_by_directions or self.__current_cell == self.__finish_cell:
@@ -191,8 +197,10 @@ class Labyrinth(QtW.QMainWindow):
         for cell in reversed(cells_to_remove):
             self.__remove_cell_from_short_path(cell=cell, with_timer_delay=False)
 
-    def __add_cell(self, cell: Cell):
-        self.__timer()
+    def __add_cell(self, cell: Cell) -> bool:
+        if not self.__timer():
+            return False
+
         cell.prec_cell = self.__current_cell
         if self.__path_display != self.__WITHOUT_PATH_DISPLAY:
             cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_IN_PATH};")
@@ -205,9 +213,9 @@ class Labyrinth(QtW.QMainWindow):
             self.__current_cell.authorisation = False
 
         self.__update_short_path(cell)
-
         if not cell.prec_cell:
-            return
+            return False
+
         label = cell.prec_cell.label
         if cell.prec_cell == self.__start_cell:
             label.setText(self.__START_LETTER)
@@ -215,6 +223,7 @@ class Labyrinth(QtW.QMainWindow):
             label.setPixmap(QPixmap(Path(self.__IMG_DIR) / self.__STONE_IMG))
         else:
             label.setText("")
+        return True
 
     def __remove_cell_from_short_path(self, cell: None | Cell = None, with_timer_delay=True):
         if with_timer_delay:
@@ -239,19 +248,23 @@ class Labyrinth(QtW.QMainWindow):
     def __display_window(self):
         self.setWindowTitle(self.__WINDOW_TITLE)
         # la ligne suivante empêche que la fenêtre prenne tout l'écran si on double-clique dessus
-        self.setMaximumSize(50, 50)
+        self.setMaximumSize(1000, 1000)
         toolbar = self.addToolBar("")
 
         # choix de la grille
-        cmbBox_gridSize = QtW.QComboBox()
+        cmbBox_gridSize = QComboBox()
+        cmbBox_gridSize.setToolTip("Taille de la grille")
+        cmbBox_gridSize.addItem("-- Grille --")
         cmbBox_gridSize.addItems(list(self.__grids.grids.keys()))
         cmbBox_gridSize.setCurrentText(self.__grid_size)
         cmbBox_gridSize.currentTextChanged.connect(self.__comboBox_gridSizeSlot)
         toolbar.addWidget(cmbBox_gridSize)
 
         # choix du type d'affichage du parcours
-        cmbBox_pathDisplay = QtW.QComboBox()
-        cmbBox_pathDisplay.addItems([self.__WITHOUT_PATH_DISPLAY, self.__SHORT_PATH_DISPLAY, self.__TOTAL_PATH_DISPLAY])
+        cmbBox_pathDisplay = QComboBox()
+        cmbBox_pathDisplay.setToolTip("Affichage du chemin")
+        cmbBox_pathDisplay.addItem("-- Chemin --")
+        cmbBox_pathDisplay.addItems(self.__PATH_DISPLAYS)
         cmbBox_pathDisplay.setCurrentText(self.__path_display)
         cmbBox_pathDisplay.currentTextChanged.connect(self.__comboBox_pathDisplaySlot)
         toolbar.addWidget(cmbBox_pathDisplay)
@@ -259,52 +272,55 @@ class Labyrinth(QtW.QMainWindow):
         # todo : mettre le slider en seconde
         # affichage de l'intervalle de temps choisi entre deux déplacements
         initial_value = int(self.__timer_delay * 100)
-        self.__sliderLabel = QtW.QLabel(str(initial_value))
+        self.__sliderLabel = QLabel(str(initial_value))
         self.__sliderLabel.setFixedSize(20, 10)
         toolbar.addWidget(self.__sliderLabel)
 
         # choix de l'intervalle de temps entre deux déplacements
-        slider = QtW.QSlider(orientation=Qt.Orientation.Horizontal)
+        slider = Slider("Délai entre deux déplacements en 1/100èmes de sec")
+        slider.setOrientation(Qt.Orientation.Horizontal)
         slider.setMinimum(0)
         slider.setMaximum(100)
-        slider.setMaximumSize(150, 20)
+        slider.setFixedWidth(100)
         slider.setValue(initial_value)
         slider.valueChanged.connect(self.__slider_slot)
         toolbar.addWidget(slider)
 
         # bouton "Play"
-        buttonPlay = QtW.QPushButton(self.__LBL_PLAY)
-        buttonPlay.clicked.connect(self.__button_playSlot)
-        toolbar.addWidget(buttonPlay)
+        self.__buttonPlayPause = QPushButton(self.__LBL_PLAY)
+        self.__buttonPlayPause.clicked.connect(self.__button_playPauseSlot)
+        toolbar.addWidget(self.__buttonPlayPause)
 
-        # buttonStop = QtW.QPushButton(self.__LBL_STOP)
-        # buttonStop.clicked.connect(self.__button_stopSlot)
-        # toolbar.addWidget(buttonStop)
+        buttonStop = QPushButton(self.__LBL_STOP)
+        buttonStop.clicked.connect(self.__button_stopSlot)
+        toolbar.addWidget(buttonStop)
 
     def __display_grid(self):
         self.__init_grid()
-        gridLayout = QtW.QGridLayout()
+        gridLayout = QGridLayout()
         gridLayout.setSpacing(0)
+        gridLayout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         label_size = 30
 
         for i in range(self.__nb_rows_grid):
             for j in range(self.__nb_cols_grid):
-                if i == 0:
-                    label = QtW.QLabel(str(j))
-                    label.setFixedSize(label_size, label_size)
-                    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                    gridLayout.addWidget(label, i, j + 1)
-                if j == 0:
-                    label = QtW.QLabel(str(i))
-                    label.setFixedSize(label_size, label_size)
-                    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                    gridLayout.addWidget(label, i + 1, j)
+                # if i == 0:
+                #     label = QLabel(str(j))
+                #     label.setFixedSize(label_size, label_size)
+                #     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                #     gridLayout.addWidget(label, i, j + 1)
+                # if j == 0:
+                #     label = QLabel(str(i))
+                #     label.setFixedSize(label_size, label_size)
+                #     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                #     gridLayout.addWidget(label, i + 1, j)
                 label = self.__grid[i][j].label
                 label.setFixedSize(label_size, label_size)
                 label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                gridLayout.addWidget(label, i + 1, j + 1)
+                # gridLayout.addWidget(label, i + 1, j + 1)
+                gridLayout.addWidget(label, i, j)
 
-        centralWidget = QtW.QWidget()
+        centralWidget = QWidget()
         centralWidget.setLayout(gridLayout)
         self.setCentralWidget(centralWidget)
 
@@ -316,44 +332,86 @@ class Labyrinth(QtW.QMainWindow):
 
     @Slot()
     def __button_stopSlot(self):
-        if self.__event:
-            self.__event.set()
-            self.__timer()
+        if self.__stop_event:
+            self.__stop_event.set()
+            self.__buttonPlayPause.setText(self.__LBL_PLAY)
 
     @Slot()
-    def __button_playSlot(self):
-        self.__button_stopSlot()
-        self.__display_grid()
-        # il faut redéfinir à chaque clic sur play un nouveau thread, car on ne peut pas faire plusieurs start and
-        # stop sur un même thread
-        self.__event = threading.Event()
-        self.__thread = threading.Thread(target=self.__find_the_exit)
-        self.__thread.start()
+    def __button_playPauseSlot(self):
+        # laisser ces deux lignes ici sinon ça peut bugger quand on fait "stop" après "pause"
+        self.__pause_event = threading.Event()
+        self.__play_event = threading.Event()
+
+        # premier clic sur play
+        if not self.__thread:
+            self.__button_stopSlot()
+            self.__display_grid()
+            self.__buttonPlayPause.setText(self.__LBL_PAUSE)
+            # il faut redéfinir à chaque clic sur play un nouveau thread, car on ne peut pas faire plusieurs start and
+            # stop sur un même thread
+            self.__stop_event = threading.Event()
+            self.__thread = threading.Thread(target=self.__find_the_exit)
+            self.__thread.start()
+
+        # clic sur pause
+        elif self.__buttonPlayPause.text() == self.__LBL_PAUSE:
+            self.__buttonPlayPause.setText(self.__LBL_PLAY)
+            self.__pause_event.set()
+
+        # clic sur play après pause
+        else:
+            self.__buttonPlayPause.setText(self.__LBL_PAUSE)
+            self.__play_event.set()
 
     @Slot()
     def __comboBox_pathDisplaySlot(self):
-        self.__path_display = self.sender().currentText()
+        if (path_display := self.sender().currentText()) not in self.__PATH_DISPLAYS:
+            return
+        self.__path_display = path_display
         self.__update_styleSheet_path()
 
     @Slot()
     def __comboBox_gridSizeSlot(self):
         self.__button_stopSlot()
-        self.__grid_size = self.sender().currentText()
-        # todo : corriger le bug d'affichage qd on réduit la taille de la fenêtre
+        if (grid_size := self.sender().currentText()) not in list(self.__grids.grids.keys()):
+            return
+        self.__grid_size = grid_size
         self.__display_grid()
         # self.adjustSize() permet de redimensionner correctement la fenêtre lorsque l'on choisit une taille de grille
         # inférieure
         self.adjustSize()
 
-    def __timer(self):
-        # laisser cette condition pour que l'affichage soit correct dans le cas où le timer est à 0 lors du premier play
+    def __timer(self) -> bool:
         if self.__timer_delay > 0:
             time.sleep(self.__timer_delay)
+
+        # on gère ici les events plutôt que dans la fonction __find_the_exit() afin que le curseur s'arrête dès le clic
+        # sur les boutons "Pause" ou "Stop" et qu'il n'y ait pas une case en plus d'ajoutée au chemin
+        if self.__stop_event.is_set():
+            return False
+
+        while self.__pause_event and self.__pause_event.is_set() and not self.__play_event.is_set():
+            time.sleep(0.1)
+            if self.__stop_event.is_set():
+                return False
+
+        return True
+
+
+class Slider(QSlider):
+    def __init__(self, text: str, parent=None):
+        super().__init__(parent)
+        self.__text = text
+        self.setMouseTracking(True)
+
+    def mouseMoveEvent(self, event: QMouseEvent):
+        QToolTip.showText(event.globalPosition().toPoint(), self.__text)
+        super().mouseMoveEvent(event)
 
 
 if __name__ == '__main__':
     # Création de l'application
-    app = QtW.QApplication(sys.argv)
+    app = QApplication(sys.argv)
     qss = "labyrinth"
     #qss = "darkorange"
 
