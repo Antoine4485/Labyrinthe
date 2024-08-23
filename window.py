@@ -1,10 +1,8 @@
 import sys
-import threading
-import time
-from pathlib import Path
+from threading import Thread, Event
 
 from PySide6.QtCore import Slot
-from PySide6.QtGui import QMouseEvent, Qt, QPixmap
+from PySide6.QtGui import QMouseEvent, Qt
 from PySide6.QtWidgets import QMainWindow, QSlider, QToolTip, QWidget, QGridLayout, QPushButton, QLabel, QComboBox, \
     QApplication
 
@@ -19,6 +17,7 @@ class Window(QMainWindow, Labyrinth):
     __SMALL_GRID_SIZE_LBL = "Petite"
     __MEDIUM_GRID_SIZE_LBL = "Moyenne"
     __LARGE_GRID_SIZE_LBL = "Grande"
+    __X_LARGE_GRID_SIZE_LBL = "Très grande"
     __CMB_BOX_PATH_DISPLAY_TOOLTIP_LBL = "Affichage du chemin"
     __CMB_BOX_PATH_DISPLAY_FIRST_ITEM_LBL = "Chemin"
     __WITHOUT_PATH_DISPLAY_LBL = "Aucun"
@@ -28,33 +27,20 @@ class Window(QMainWindow, Labyrinth):
     __PLAY_LBL = "Play"
     __PAUSE_LBL = "Pause"
     __STOP_LBL = "Stop"
-    # _IMG_DIR = "img"
-    # _WALL_IMG = "mur.webp"
-    # _STONE_IMG = "caillou.png"
 
     def __init__(self):
         super().__init__()
         Labyrinth().__init__()
         self.__grids_wordings_by_codes = {Grids.SMALL_GRID_SIZE_CODE: self.__SMALL_GRID_SIZE_LBL,
                                           Grids.MEDIUM_GRID_SIZE_CODE: self.__MEDIUM_GRID_SIZE_LBL,
-                                          Grids.LARGE_GRID_SIZE_CODE: self.__LARGE_GRID_SIZE_LBL}
+                                          Grids.LARGE_GRID_SIZE_CODE: self.__LARGE_GRID_SIZE_LBL,
+                                          Grids.X_LARGE_GRID_SIZE_CODE: self.__X_LARGE_GRID_SIZE_LBL}
         self.__paths_wordings_by_codes = {self._WITHOUT_PATH_DISPLAY_CODE: self.__WITHOUT_PATH_DISPLAY_LBL,
                                           self._TOTAL_PATH_DISPLAY_CODE: self.__TOTAL_PATH_DISPLAY_LBL,
                                           self._SHORT_PATH_DISPLAY_CODE: self.__SHORT_PATH_DISPLAY_LBL}
         self.__display()
         self.__display_grid()
         self.show()
-
-    def __get_label_by_value(self, value: int) -> QLabel:
-        label = QLabel()
-        match value:
-            case self._START_VALUE:
-                label.setText(self._START_LETTER)
-            case self._FINISH_VALUE:
-                label.setText(self._FINISH_LETTER)
-            case self._WALL_VALUE:
-                label.setPixmap(QPixmap(Path(self._IMG_DIR) / self._WALL_IMG))
-        return label
 
     def __display(self):
         self.setWindowTitle(self.__WINDOW_TITLE)
@@ -83,7 +69,8 @@ class Window(QMainWindow, Labyrinth):
         # affichage de l'intervalle de temps choisi entre deux déplacements
         initial_value = int(self._timer_delay * 100)
         self.__sliderLabel = QLabel(str(initial_value))
-        self.__sliderLabel.setFixedSize(20, 10)
+        self.__sliderLabel.setStyleSheet("margin-left:10px;")
+        self.__sliderLabel.setFixedSize(35, 10)
         toolbar.addWidget(self.__sliderLabel)
 
         # choix de l'intervalle de temps entre deux déplacements
@@ -114,23 +101,10 @@ class Window(QMainWindow, Labyrinth):
 
         for i in range(self._nb_rows_grid):
             for j in range(self._nb_cols_grid):
-                # if i == 0:
-                #     label = QLabel(str(j))
-                #     label.setFixedSize(label_size, label_size)
-                #     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                #     gridLayout.addWidget(label, i, j + 1)
-                # if j == 0:
-                #     label = QLabel(str(i))
-                #     label.setFixedSize(label_size, label_size)
-                #     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                #     gridLayout.addWidget(label, i + 1, j)
-                cell = self._grid[i][j]
-                cell.label = self.__get_label_by_value(cell.value)
-                #label = self._grid[i][j].label
-                cell.label.setFixedSize(label_size, label_size)
-                cell.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                # gridLayout.addWidget(label, i + 1, j + 1)
-                gridLayout.addWidget(cell.label, i, j)
+                label = self._grid[i][j].label
+                label.setFixedSize(label_size, label_size)
+                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                gridLayout.addWidget(label, i, j)
 
         centralWidget = QWidget()
         centralWidget.setLayout(gridLayout)
@@ -151,8 +125,8 @@ class Window(QMainWindow, Labyrinth):
     @Slot()
     def __button_playPauseSlot(self):
         # laisser ces deux lignes ici pour le cas où l'on fait "stop" après "pause"
-        self._pause_event = threading.Event()
-        self._play_event = threading.Event()
+        self._pause_event = Event()
+        self._play_event = Event()
 
         # premier clic sur play
         if not self._thread:
@@ -161,11 +135,9 @@ class Window(QMainWindow, Labyrinth):
             self.__buttonPlayPause.setText(self.__PAUSE_LBL)
             # il faut redéfinir à chaque clic sur play un nouveau thread, car on ne peut pas faire plusieurs start and
             # stop sur un même thread
-            self._stop_event = threading.Event()
-            self._thread = threading.Thread(target=self.__find_the_exit)
+            self._stop_event = Event()
+            self._thread = Thread(target=self.__target_play_thread)
             self._thread.start()
-            # self._thread.join()
-            # self.__buttonPlayPause.setText(self.__PLAY_LBL)
 
         # clic sur pause
         elif self.__buttonPlayPause.text() == self.__PAUSE_LBL:
@@ -177,24 +149,15 @@ class Window(QMainWindow, Labyrinth):
             self.__buttonPlayPause.setText(self.__PAUSE_LBL)
             self._play_event.set()
 
-    # todo : remettre cette fonction dans la classe Labyrinth
-    def __find_the_exit(self):
-        next_cell = self._start_cell
-        while next_cell:
-            if not self._add_cell(next_cell):
-                break
-            # il faut commenter la ligne suivante en production pour que l'affichage du chemin soit correct dans le cas
-            # où le délai du timer est à 0
-            # print(self.__current_cell.row_id, self.__current_cell.col_id)
-            next_cell = self._get_next_cell()
-        self._thread = None
+    def __target_play_thread(self):
+        self._find_the_exit()
         self.__buttonPlayPause.setText(self.__PLAY_LBL)
 
     @Slot()
     def __comboBox_pathDisplaySlot(self):
         if (path_display_wording := self.sender().currentText()) not in self.__paths_wordings_by_codes.values():
             return
-        self.__path_display_code = self.__get_key_by_value(self.__paths_wordings_by_codes, path_display_wording)
+        self._path_display_code = self.__get_key_by_value(self.__paths_wordings_by_codes, path_display_wording)
         self._update_styleSheet_path()
 
     @Slot()
@@ -203,7 +166,7 @@ class Window(QMainWindow, Labyrinth):
             return
         # laisser la ligne suivante ici pour que le programme ne s'arrête pas quand on clique sur "Grille"
         self.__button_stopSlot()
-        self.__grid_size_code = self.__get_key_by_value(self.__grids_wordings_by_codes, grid_size_wording)
+        self._grid_size_code = self.__get_key_by_value(self.__grids_wordings_by_codes, grid_size_wording)
         self.__display_grid()
         # self.adjustSize() permet de redimensionner correctement la fenêtre lorsque l'on choisit une taille de grille
         # inférieure
@@ -228,7 +191,7 @@ class Slider(QSlider):
 
 
 if __name__ == '__main__':
-    # Création de l'application
+
     app = QApplication(sys.argv)
     qss = "labyrinth"
     #qss = "darkorange"
@@ -237,6 +200,4 @@ if __name__ == '__main__':
         app.setStyleSheet(f.read())
 
     window = Window()
-    # labyrinth = Labyrinth()
-    # labyrinth.show()
     sys.exit(app.exec())

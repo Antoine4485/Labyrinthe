@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets
+from label import Label
 
 
 class Cell:
@@ -13,12 +13,12 @@ class Cell:
     __NORTH_WEST_CODE = __NORTH_CODE + __WEST_CODE
     __DIAGONAL_DIRECTIONS = {__NORTH_EAST_CODE, __SOUTH_EAST_CODE, __SOUTH_WEST_CODE, __NORTH_WEST_CODE}
 
-    def __init__(self, row_id: int, col_id: int, value: int, authorisation: bool):
+    def __init__(self, row_id: int, col_id: int, value: int, authorisation: bool, label: Label):
         self.__row_id = row_id
         self.__col_id = col_id
         self.__value = value
         self.__authorisation = authorisation
-        self.__label: None | QtWidgets.QLabel = None
+        self.__label = label
         self.__direction = ""
         self.__prec_cell: None | Cell = None
         self.__left_cell: None | Cell = None
