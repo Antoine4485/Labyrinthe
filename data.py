@@ -1,12 +1,12 @@
 class Grids:
-    SMALL_GRID_SIZE = "Petite"
-    MEDIUM_GRID_SIZE = "Moyenne"
-    LARGE_GRID_SIZE = "Grande"
+    SMALL_GRID_SIZE_CODE = "small"
+    MEDIUM_GRID_SIZE_CODE = "medium"
+    LARGE_GRID_SIZE_CODE = "large"
 
     @property
     def grids(self) -> dict:
         return {
-            self.SMALL_GRID_SIZE: [
+            self.SMALL_GRID_SIZE_CODE: [
                 [1, 1, 0, 1, 0, 1, 0, 1, 3, 1],
                 [1, 2, 0, 1, 0, 0, 0, 0, 0, 1],
                 [1, 1, 0, 1, 0, 1, 1, 1, 1, 1],
@@ -17,7 +17,7 @@ class Grids:
                 [1, 1, 0, 1, 1, 1, 1, 0, 0, 0],
                 [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
             ],
-            self.MEDIUM_GRID_SIZE: [
+            self.MEDIUM_GRID_SIZE_CODE: [
                 [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
                 [1, 0, 2, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
@@ -31,7 +31,7 @@ class Grids:
                 [0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
                 [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
             ],
-            self.LARGE_GRID_SIZE: [
+            self.LARGE_GRID_SIZE_CODE: [
                 [0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 [1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
                 [1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1],
