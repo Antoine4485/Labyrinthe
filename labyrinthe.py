@@ -6,86 +6,88 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QPixmap, QMouseEvent
-from PySide6.QtWidgets import QLabel, QWidget, QGridLayout, QMainWindow, QToolTip, QSlider, QApplication, QPushButton, \
+from PySide6.QtWidgets import QLabel, QWidget, QGridLayout, QToolTip, QSlider, QApplication, QPushButton, \
     QComboBox
 
 from cell import Cell
 from data import Grids
 
 
-class Labyrinth(QMainWindow):
-    __PATH_VALUE = 0
-    __WALL_VALUE = 1
-    __START_VALUE = 2
-    __FINISH_VALUE = 3
-    __AUTHORISED_VALUES = {__PATH_VALUE, __WALL_VALUE, __START_VALUE, __FINISH_VALUE}
-    __START_LETTER = "D"
-    __FINISH_LETTER = "A"
-    __PERSON_LETTER = "X"
-    __IMG_DIR = "img"
-    __WALL_IMG = "mur.webp"
-    __STONE_IMG = "caillou.png"
-    __BG_COLOR_OF_CELL_IN_PATH = "rgba(150, 150, 150, 0.5)"
-    __BG_COLOR_OF_CELL_NOT_IN_PATH = "none"
-    __WINDOW_TITLE = "Labyrinthe"
-    __CMB_BOX_GRID_SIZE_TOOLTIP_LBL = "Taille de la grille"
-    __CMB_BOX_GRID_SIZE_FIRST_ITEM_LBL = "Grille"
-    __SMALL_GRID_SIZE_LBL = "Petite"
-    __MEDIUM_GRID_SIZE_LBL = "Moyenne"
-    __LARGE_GRID_SIZE_LBL = "Grande"
-    __WITHOUT_PATH_DISPLAY_CODE = "without"
-    __SHORT_PATH_DISPLAY_CODE = "short"
-    __TOTAL_PATH_DISPLAY_CODE = "total"
-    __CMB_BOX_PATH_DISPLAY_TOOLTIP_LBL = "Affichage du chemin"
-    __CMB_BOX_PATH_DISPLAY_FIRST_ITEM_LBL = "Chemin"
-    __WITHOUT_PATH_DISPLAY_LBL = "Aucun"
-    __SHORT_PATH_DISPLAY_LBL = "Optimisé"
-    __TOTAL_PATH_DISPLAY_LBL = "Complet"
-    __SLIDER_LBL_TEXT = "Délai entre deux déplacements en 1/100èmes de sec"
-    __PLAY_LBL = "Play"
-    __PAUSE_LBL = "Pause"
-    __STOP_LBL = "Stop"
+class Labyrinth:
+    _PATH_VALUE = 0
+    _WALL_VALUE = 1
+    _START_VALUE = 2
+    _FINISH_VALUE = 3
+    __AUTHORISED_VALUES = {_PATH_VALUE, _WALL_VALUE, _START_VALUE, _FINISH_VALUE}
+    _START_LETTER = "D"
+    _FINISH_LETTER = "A"
+    _PERSON_LETTER = "X"
+    _IMG_DIR = "img"
+    _WALL_IMG = "mur.webp"
+    _STONE_IMG = "caillou.png"
+    # __BG_COLOR_OF_CELL_IN_PATH = "rgba(150, 150, 150, 0.5)"
+    # __BG_COLOR_OF_CELL_NOT_IN_PATH = "none"
+    # __WINDOW_TITLE = "Labyrinthe"
+    # __CMB_BOX_GRID_SIZE_TOOLTIP_LBL = "Taille de la grille"
+    # __CMB_BOX_GRID_SIZE_FIRST_ITEM_LBL = "Grille"
+    # __SMALL_GRID_SIZE_LBL = "Petite"
+    # __MEDIUM_GRID_SIZE_LBL = "Moyenne"
+    # __LARGE_GRID_SIZE_LBL = "Grande"
+    _WITHOUT_PATH_DISPLAY_CODE = "without"
+    _SHORT_PATH_DISPLAY_CODE = "short"
+    _TOTAL_PATH_DISPLAY_CODE = "total"
+    # __CMB_BOX_PATH_DISPLAY_TOOLTIP_LBL = "Affichage du chemin"
+    # __CMB_BOX_PATH_DISPLAY_FIRST_ITEM_LBL = "Chemin"
+    # __WITHOUT_PATH_DISPLAY_LBL = "Aucun"
+    # __SHORT_PATH_DISPLAY_LBL = "Optimisé"
+    # __TOTAL_PATH_DISPLAY_LBL = "Complet"
+    # __SLIDER_LBL_TEXT = "Délai entre deux déplacements en 1/100èmes de sec"
+    # __PLAY_LBL = "Play"
+    # __PAUSE_LBL = "Pause"
+    # __STOP_LBL = "Stop"
+    _BG_COLOR_OF_CELL_IN_PATH = "rgba(150, 150, 150, 0.5)"
+    _BG_COLOR_OF_CELL_NOT_IN_PATH = "none"
 
     def __init__(self):
         super().__init__()
-        self.__grids = Grids()
-        self.__grids_wordings_by_codes = {self.__grids.SMALL_GRID_SIZE_CODE: self.__SMALL_GRID_SIZE_LBL,
-                                          self.__grids.MEDIUM_GRID_SIZE_CODE: self.__MEDIUM_GRID_SIZE_LBL,
-                                          self.__grids.LARGE_GRID_SIZE_CODE: self.__LARGE_GRID_SIZE_LBL}
-        self.__paths_wordings_by_codes = {self.__WITHOUT_PATH_DISPLAY_CODE: self.__WITHOUT_PATH_DISPLAY_LBL,
-                                          self.__TOTAL_PATH_DISPLAY_CODE: self.__TOTAL_PATH_DISPLAY_LBL,
-                                          self.__SHORT_PATH_DISPLAY_CODE: self.__SHORT_PATH_DISPLAY_LBL}
-        self.__grid_size_code = self.__grids.SMALL_GRID_SIZE_CODE
-        self.__path_display_code = self.__SHORT_PATH_DISPLAY_CODE
-        self.__thread: None | threading.Thread = None
-        self.__play_event: None | threading.Event = None
-        self.__pause_event: None | threading.Event = None
-        self.__stop_event: None | threading.Event = None
-        self.__timer_delay = 0.2
-        self.__display_window()
-        self.__display_grid()
+        #self.__grids = Grids()
+        # self.__grids_wordings_by_codes = {self.__grids.SMALL_GRID_SIZE_CODE: self.__SMALL_GRID_SIZE_LBL,
+        #                                   self.__grids.MEDIUM_GRID_SIZE_CODE: self.__MEDIUM_GRID_SIZE_LBL,
+        #                                   self.__grids.LARGE_GRID_SIZE_CODE: self.__LARGE_GRID_SIZE_LBL}
+        # self.__paths_wordings_by_codes = {self._WITHOUT_PATH_DISPLAY_CODE: self.__WITHOUT_PATH_DISPLAY_LBL,
+        #                                   self._TOTAL_PATH_DISPLAY_CODE: self.__TOTAL_PATH_DISPLAY_LBL,
+        #                                   self._SHORT_PATH_DISPLAY_CODE: self.__SHORT_PATH_DISPLAY_LBL}
+        self._grid_size_code = Grids.SMALL_GRID_SIZE_CODE
+        self._path_display_code = self._SHORT_PATH_DISPLAY_CODE
+        self._thread: None | threading.Thread = None
+        self._play_event: None | threading.Event = None
+        self._pause_event: None | threading.Event = None
+        self._stop_event: None | threading.Event = None
+        self._timer_delay = 0.2
+        # self.__display_window()
+        # self.__display_grid()
 
-    def __init_grid(self):
-        self.__grid = []
+    def _init_grid(self):
+        self._grid = []
         self.__total_path = []
         self.__short_path = []
-        self.__start_cell: None | Cell = None
+        self._start_cell: None | Cell = None
         self.__finish_cell: None | Cell = None
         self.__current_cell: None | Cell = None
         if not self.__set_grid():
             exit()
-        self.__nb_rows_grid = len(self.__grid)
-        self.__nb_cols_grid = len(self.__grid[0])
+        self._nb_rows_grid = len(self._grid)
+        self._nb_cols_grid = len(self._grid[0])
         self.__init_cells_around_cells()
 
     def __set_grid(self) -> bool:
-        grid = self.__grids.grids[self.__grid_size_code]
+        grid = Grids().grids[self._grid_size_code]
         if type(grid) is not list:
             return False
         for row_id, row in enumerate(grid):
             if type(row) is not list:
                 return False
-            self.__grid.append([])
+            self._grid.append([])
             for col_id, value in enumerate(row):
                 if type(value) is not int or value not in self.__AUTHORISED_VALUES:
                     return False
@@ -97,34 +99,33 @@ class Labyrinth(QMainWindow):
                 cell = Cell(row_id=row_id,
                             col_id=col_id,
                             value=value,
-                            authorisation=False if value == self.__WALL_VALUE else True,
-                            label=self.__get_label_by_value(value))
+                            authorisation=False if value == self._WALL_VALUE else True)
 
-                self.__grid[row_id].append(cell)
+                self._grid[row_id].append(cell)
 
-                if value == self.__START_VALUE:
-                    self.__start_cell = cell
-                elif value == self.__FINISH_VALUE:
+                if value == self._START_VALUE:
+                    self._start_cell = cell
+                elif value == self._FINISH_VALUE:
                     self.__finish_cell = cell
 
         return True
 
-    def __get_label_by_value(self, value: int) -> QLabel:
-        label = QLabel()
-        match value:
-            case self.__START_VALUE:
-                label.setText(self.__START_LETTER)
-            case self.__FINISH_VALUE:
-                label.setText(self.__FINISH_LETTER)
-            case self.__WALL_VALUE:
-                label.setPixmap(QPixmap(Path(self.__IMG_DIR) / self.__WALL_IMG))
-        return label
+    # def __get_label_by_value(self, value: int) -> QLabel:
+    #     label = QLabel()
+    #     match value:
+    #         case self._START_VALUE:
+    #             label.setText(self._START_LETTER)
+    #         case self._FINISH_VALUE:
+    #             label.setText(self._FINISH_LETTER)
+    #         case self._WALL_VALUE:
+    #             label.setPixmap(QPixmap(Path(self._IMG_DIR) / self._WALL_IMG))
+    #     return label
 
     def __init_cells_around_cells(self):
         # Initialisation, autour de chaque case, des cases selon leur direction, afin de pouvoir par la suite accéder
         # facilement par exemple à la case à gauche de celle à gauche de la case courante, ou à la case à droite de
         # celle à droite de la case courante (en faisant cell.left_cell.left_cell ou cell.right_cell.right_cell)
-        for row in self.__grid:
+        for row in self._grid:
             for cell in row:
                 self.__current_cell = cell
                 self.__current_cell.closest_cells_by_directions = self.__get_closest_cells_by_directions()
@@ -134,27 +135,27 @@ class Labyrinth(QMainWindow):
 
         for direction, pos in self.__current_cell.get_positions_by_directions().items():
             if self.__is_pos_in_grid(pos):
-                cell = self.__grid[pos[0]][pos[1]]
+                cell = self._grid[pos[0]][pos[1]]
                 closest_cells_by_directions[direction] = cell
 
         return closest_cells_by_directions
 
     def __is_pos_in_grid(self, pos: tuple) -> bool:
-        return pos[0] in range(self.__nb_rows_grid) and pos[1] in range(self.__nb_cols_grid)
+        return pos[0] in range(self._nb_rows_grid) and pos[1] in range(self._nb_cols_grid)
 
-    def __find_the_exit(self):
-        next_cell = self.__start_cell
-        while next_cell:
-            if not self.__add_cell(next_cell):
-                break
-            # il faut commenter la ligne suivante en production pour que l'affichage du chemin soit correct dans le cas
-            # où le délai du timer est à 0
-            # print(self.__current_cell.row_id, self.__current_cell.col_id)
-            next_cell = self.__get_next_cell()
-        self.__thread = None
-        self.__buttonPlayPause.setText(self.__PLAY_LBL)
+    # def __find_the_exit(self):
+    #     next_cell = self._start_cell
+    #     while next_cell:
+    #         if not self.__add_cell(next_cell):
+    #             break
+    #         # il faut commenter la ligne suivante en production pour que l'affichage du chemin soit correct dans le cas
+    #         # où le délai du timer est à 0
+    #         # print(self.__current_cell.row_id, self.__current_cell.col_id)
+    #         next_cell = self.__get_next_cell()
+    #     self._thread = None
+    #     self.__buttonPlayPause.setText(self.__PLAY_LBL)
 
-    def __get_next_cell(self) -> None | Cell:
+    def _get_next_cell(self) -> None | Cell:
         if not self.__current_cell.authorised_next_cells_by_directions or self.__current_cell == self.__finish_cell:
             return None
 
@@ -213,14 +214,14 @@ class Labyrinth(QMainWindow):
         for cell in reversed(cells_to_remove):
             self.__remove_cell_from_short_path(cell=cell, with_timer_delay=False)
 
-    def __add_cell(self, cell: Cell) -> bool:
+    def _add_cell(self, cell: Cell) -> bool:
         if not self.__timer():
             return False
 
         cell.prec_cell = self.__current_cell
-        if self.__path_display_code != self.__WITHOUT_PATH_DISPLAY_CODE:
-            cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_IN_PATH};")
-        cell.label.setText(self.__PERSON_LETTER)
+        if self._path_display_code != self._WITHOUT_PATH_DISPLAY_CODE:
+            cell.label.setStyleSheet(f"background-color:{self._BG_COLOR_OF_CELL_IN_PATH};")
+        cell.label.setText(self._PERSON_LETTER)
         self.__total_path.append(cell)
         self.__current_cell = cell
 
@@ -233,10 +234,10 @@ class Labyrinth(QMainWindow):
             return False
 
         label = cell.prec_cell.label
-        if cell.prec_cell == self.__start_cell:
-            label.setText(self.__START_LETTER)
+        if cell.prec_cell == self._start_cell:
+            label.setText(self._START_LETTER)
         elif not cell.prec_cell.authorisation:
-            label.setPixmap(QPixmap(Path(self.__IMG_DIR) / self.__STONE_IMG))
+            label.setPixmap(QPixmap(Path(self._IMG_DIR) / self._STONE_IMG))
         else:
             label.setText("")
         return True
@@ -250,196 +251,44 @@ class Labyrinth(QMainWindow):
         if not cell:
             cell = self.__short_path[-1]
         self.__short_path.remove(cell)
-        if self.__path_display_code != self.__TOTAL_PATH_DISPLAY_CODE:
-            cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_NOT_IN_PATH};")
+        if self._path_display_code != self._TOTAL_PATH_DISPLAY_CODE:
+            cell.label.setStyleSheet(f"background-color:{self._BG_COLOR_OF_CELL_NOT_IN_PATH};")
 
-    def __update_styleSheet_path(self):
+    def _update_styleSheet_path(self):
         for cell in self.__total_path:
-            if self.__path_display_code == self.__WITHOUT_PATH_DISPLAY_CODE or \
-                    self.__path_display_code == self.__SHORT_PATH_DISPLAY_CODE and cell not in self.__short_path:
-                cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_NOT_IN_PATH};")
+            if self._path_display_code == self._WITHOUT_PATH_DISPLAY_CODE or \
+                    self._path_display_code == self._SHORT_PATH_DISPLAY_CODE and cell not in self.__short_path:
+                cell.label.setStyleSheet(f"background-color:{self._BG_COLOR_OF_CELL_NOT_IN_PATH};")
             else:
-                cell.label.setStyleSheet(f"background-color:{self.__BG_COLOR_OF_CELL_IN_PATH};")
-
-    def __display_window(self):
-        self.setWindowTitle(self.__WINDOW_TITLE)
-        # la ligne suivante empêche que la fenêtre prenne tout l'écran si on double-clique dessus
-        self.setMaximumSize(1000, 1000)
-        toolbar = self.addToolBar("")
-
-        # choix de la grille
-        cmbBox_gridSize = QComboBox()
-        cmbBox_gridSize.setToolTip(self.__CMB_BOX_GRID_SIZE_TOOLTIP_LBL)
-        cmbBox_gridSize.addItem(f"-- {self.__CMB_BOX_GRID_SIZE_FIRST_ITEM_LBL} --")
-        cmbBox_gridSize.addItems(list(self.__grids_wordings_by_codes.values()))
-        cmbBox_gridSize.setCurrentText(self.__grids_wordings_by_codes[self.__grid_size_code])
-        cmbBox_gridSize.currentTextChanged.connect(self.__comboBox_gridSizeSlot)
-        toolbar.addWidget(cmbBox_gridSize)
-
-        # choix du type d'affichage du parcours
-        cmbBox_pathDisplay = QComboBox()
-        cmbBox_pathDisplay.setToolTip(self.__CMB_BOX_PATH_DISPLAY_TOOLTIP_LBL)
-        cmbBox_pathDisplay.addItem(f"-- {self.__CMB_BOX_PATH_DISPLAY_FIRST_ITEM_LBL} --")
-        cmbBox_pathDisplay.addItems(list(self.__paths_wordings_by_codes.values()))
-        cmbBox_pathDisplay.setCurrentText(self.__paths_wordings_by_codes[self.__path_display_code])
-        cmbBox_pathDisplay.currentTextChanged.connect(self.__comboBox_pathDisplaySlot)
-        toolbar.addWidget(cmbBox_pathDisplay)
-
-        # affichage de l'intervalle de temps choisi entre deux déplacements
-        initial_value = int(self.__timer_delay * 100)
-        self.__sliderLabel = QLabel(str(initial_value))
-        self.__sliderLabel.setFixedSize(20, 10)
-        toolbar.addWidget(self.__sliderLabel)
-
-        # choix de l'intervalle de temps entre deux déplacements
-        slider = Slider(self.__SLIDER_LBL_TEXT)
-        slider.setOrientation(Qt.Orientation.Horizontal)
-        slider.setMinimum(0)
-        slider.setMaximum(100)
-        slider.setFixedWidth(100)
-        slider.setValue(initial_value)
-        slider.valueChanged.connect(self.__slider_slot)
-        toolbar.addWidget(slider)
-
-        # bouton "Play"
-        self.__buttonPlayPause = QPushButton(self.__PLAY_LBL)
-        self.__buttonPlayPause.clicked.connect(self.__button_playPauseSlot)
-        toolbar.addWidget(self.__buttonPlayPause)
-
-        buttonStop = QPushButton(self.__STOP_LBL)
-        buttonStop.clicked.connect(self.__button_stopSlot)
-        toolbar.addWidget(buttonStop)
-
-    def __display_grid(self):
-        self.__init_grid()
-        gridLayout = QGridLayout()
-        gridLayout.setSpacing(0)
-        gridLayout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        label_size = 30
-
-        for i in range(self.__nb_rows_grid):
-            for j in range(self.__nb_cols_grid):
-                # if i == 0:
-                #     label = QLabel(str(j))
-                #     label.setFixedSize(label_size, label_size)
-                #     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                #     gridLayout.addWidget(label, i, j + 1)
-                # if j == 0:
-                #     label = QLabel(str(i))
-                #     label.setFixedSize(label_size, label_size)
-                #     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                #     gridLayout.addWidget(label, i + 1, j)
-                label = self.__grid[i][j].label
-                label.setFixedSize(label_size, label_size)
-                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                # gridLayout.addWidget(label, i + 1, j + 1)
-                gridLayout.addWidget(label, i, j)
-
-        centralWidget = QWidget()
-        centralWidget.setLayout(gridLayout)
-        self.setCentralWidget(centralWidget)
-
-    @Slot()
-    def __slider_slot(self):
-        delay = self.sender().value()
-        self.__sliderLabel.setText(str(delay))
-        self.__timer_delay = delay / 100
-
-    @Slot()
-    def __button_stopSlot(self):
-        if self.__stop_event:
-            self.__stop_event.set()
-            self.__buttonPlayPause.setText(self.__PLAY_LBL)
-
-    @Slot()
-    def __button_playPauseSlot(self):
-        # laisser ces deux lignes ici pour le cas où l'on fait "stop" après "pause"
-        self.__pause_event = threading.Event()
-        self.__play_event = threading.Event()
-
-        # premier clic sur play
-        if not self.__thread:
-            self.__button_stopSlot()
-            self.__display_grid()
-            self.__buttonPlayPause.setText(self.__PAUSE_LBL)
-            # il faut redéfinir à chaque clic sur play un nouveau thread, car on ne peut pas faire plusieurs start and
-            # stop sur un même thread
-            self.__stop_event = threading.Event()
-            self.__thread = threading.Thread(target=self.__find_the_exit)
-            self.__thread.start()
-
-        # clic sur pause
-        elif self.__buttonPlayPause.text() == self.__PAUSE_LBL:
-            self.__buttonPlayPause.setText(self.__PLAY_LBL)
-            self.__pause_event.set()
-
-        # clic sur play après pause
-        else:
-            self.__buttonPlayPause.setText(self.__PAUSE_LBL)
-            self.__play_event.set()
-
-    @Slot()
-    def __comboBox_pathDisplaySlot(self):
-        if (path_display_wording := self.sender().currentText()) not in self.__paths_wordings_by_codes.values():
-            return
-        self.__path_display_code = self.__get_key_by_value(self.__paths_wordings_by_codes, path_display_wording)
-        self.__update_styleSheet_path()
-
-    @Slot()
-    def __comboBox_gridSizeSlot(self):
-        if (grid_size_wording := self.sender().currentText()) not in self.__grids_wordings_by_codes.values():
-            return
-        # laisser la ligne suivante ici pour que le programme ne s'arrête pas quand on clique sur "Grille"
-        self.__button_stopSlot()
-        self.__grid_size_code = self.__get_key_by_value(self.__grids_wordings_by_codes, grid_size_wording)
-        self.__display_grid()
-        # self.adjustSize() permet de redimensionner correctement la fenêtre lorsque l'on choisit une taille de grille
-        # inférieure
-        self.adjustSize()
+                cell.label.setStyleSheet(f"background-color:{self._BG_COLOR_OF_CELL_IN_PATH};")
 
     def __timer(self) -> bool:
-        if self.__timer_delay > 0:
-            time.sleep(self.__timer_delay)
+        if self._timer_delay > 0:
+            time.sleep(self._timer_delay)
 
         # on gère ici les events plutôt que dans la fonction __find_the_exit() afin que le curseur s'arrête dès le clic
         # sur les boutons "Pause" ou "Stop" et qu'il n'y ait pas une case en plus d'ajoutée au chemin
-        if self.__stop_event.is_set():
+        if self._stop_event.is_set():
             return False
 
-        while self.__pause_event and self.__pause_event.is_set() and not self.__play_event.is_set():
+        while self._pause_event and self._pause_event.is_set() and not self._play_event.is_set():
             time.sleep(0.1)
-            if self.__stop_event.is_set():
+            if self._stop_event.is_set():
                 return False
 
         return True
 
-    @staticmethod
-    def __get_key_by_value(dictionnary: dict, value):
-        for k, val in dictionnary.items():
-            if value == val:
-                return k
 
 
-class Slider(QSlider):
-    def __init__(self, text: str, parent=None):
-        super().__init__(parent)
-        self.__text = text
-        self.setMouseTracking(True)
-
-    def mouseMoveEvent(self, event: QMouseEvent):
-        QToolTip.showText(event.globalPosition().toPoint(), self.__text)
-        super().mouseMoveEvent(event)
-
-
-if __name__ == '__main__':
-    # Création de l'application
-    app = QApplication(sys.argv)
-    qss = "labyrinth"
-    #qss = "darkorange"
-
-    with open(f"styles/{qss}.qss", "r") as f:
-        app.setStyleSheet(f.read())
-
-    labyrinth = Labyrinth()
-    labyrinth.show()
-    sys.exit(app.exec())
+# if __name__ == '__main__':
+#     # Création de l'application
+#     app = QApplication(sys.argv)
+#     qss = "labyrinth"
+#     #qss = "darkorange"
+#
+#     with open(f"styles/{qss}.qss", "r") as f:
+#         app.setStyleSheet(f.read())
+#
+#     labyrinth = Labyrinth()
+#     labyrinth.show()
+#     sys.exit(app.exec())
