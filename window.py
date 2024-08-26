@@ -93,8 +93,8 @@ class Window(QMainWindow, Labyrinth):
         toolbar.addWidget(buttonStop)
 
     def __display_grid(self):
-        self._init_grid()
         gridLayout = QGridLayout()
+        self._init_grid()
         gridLayout.setSpacing(0)
         gridLayout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         label_size = 30
@@ -104,6 +104,7 @@ class Window(QMainWindow, Labyrinth):
                 label = self._grid[i][j].label
                 label.setFixedSize(label_size, label_size)
                 label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                label.set_default_bg_color()
                 gridLayout.addWidget(label, i, j)
 
         centralWidget = QWidget()
@@ -124,7 +125,7 @@ class Window(QMainWindow, Labyrinth):
 
     @Slot()
     def __button_playPauseSlot(self):
-        # laisser ces deux lignes ici pour le cas où l'on fait "stop" après "pause"
+        # laisser ces deux lignes ici pour que ça fonctionne bien aussi dans le cas où on fait "stop" après "pause"
         self._pause_event = Event()
         self._play_event = Event()
 
@@ -192,12 +193,6 @@ class Slider(QSlider):
 
 if __name__ == '__main__':
 
-    app = QApplication(sys.argv)
-    qss = "labyrinth"
-    #qss = "darkorange"
-
-    with open(f"styles/{qss}.qss", "r") as f:
-        app.setStyleSheet(f.read())
-
+    app = QApplication()
     window = Window()
     sys.exit(app.exec())
