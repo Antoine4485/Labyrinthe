@@ -182,7 +182,7 @@ class Labyrinth:
         cell.prec_cell = self.__current_cell
         if self._path_display_code != self._WITHOUT_PATH_DISPLAY_CODE:
             cell.label.set_bg_color_of_cell_in_path()
-        cell.label.set_person_letter()
+        cell.label.set_person_img()
         self.__total_path.append(cell)
         self.__current_cell = cell
 
@@ -200,7 +200,7 @@ class Labyrinth:
         elif not cell.prec_cell.authorisation:
             label.set_stone_img()
         else:
-            label.setText("")
+            label.remove_img()
         return True
 
     def __remove_cell_from_short_path(self, cell: None | Cell = None, with_timer_delay=True):
@@ -213,13 +213,13 @@ class Labyrinth:
             cell = self.__short_path[-1]
         self.__short_path.remove(cell)
         if self._path_display_code != self._TOTAL_PATH_DISPLAY_CODE:
-            cell.label.set_bg_color_of_cell_not_in_path()
+            cell.label.set_default_bg_color()
 
     def _update_styleSheet_path(self):
         for cell in self.__total_path:
             if self._path_display_code == self._WITHOUT_PATH_DISPLAY_CODE or \
                     self._path_display_code == self._SHORT_PATH_DISPLAY_CODE and cell not in self.__short_path:
-                cell.label.set_bg_color_of_cell_not_in_path()
+                cell.label.set_default_bg_color()
             else:
                 cell.label.set_bg_color_of_cell_in_path()
 
