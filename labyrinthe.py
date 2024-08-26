@@ -114,7 +114,6 @@ class Labyrinth:
             # print(self.__current_cell.row_id, self.__current_cell.col_id)
             next_cell = self.__get_next_cell()
         self._thread = None
-    #     self.__buttonPlayPause.setText(self.__PLAY_LBL)
 
     def __get_next_cell(self) -> None | Cell:
         if not self.__current_cell.authorised_next_cells_by_directions or self.__current_cell == self.__finish_cell:
